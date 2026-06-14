@@ -12,6 +12,14 @@ export function DeadlinesPage() {
         </div>
       </section>
 
+      <section className="filter-bar" aria-label="Filtros de prazos">
+        <button type="button">Hoje</button>
+        <button type="button">Semana</button>
+        <button type="button">Mes</button>
+        <button type="button">Urgentes</button>
+        <button type="button">Concluidos</button>
+      </section>
+
       <section className="deadline-board">
         {deadlines.map((deadline) => (
           <article className={`deadline-card ${deadline.priority}`} key={deadline.id}>

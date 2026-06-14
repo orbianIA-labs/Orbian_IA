@@ -20,9 +20,22 @@ export type LegalCase = {
   title: string
   caseNumber?: string
   clientName: string
+  clientPhone: string
+  clientEmail: string
+  clientCpf: string
   area: LegalArea
+  category: string
+  flow: string
   status: CaseStatus
+  progress: number
+  nextAction: string
   nextDeadline?: string
+  claimValue: number
+  fees: number
+  received: number
+  pending: number
+  expectedProfit: number
+  recommendedDocuments: Array<{ name: string; received: boolean }>
   updatedAt: string
 }
 
@@ -37,31 +50,4 @@ export type Deadline = {
   businessDaysLeft: number
   priority: DeadlinePriority
   completed: boolean
-}
-
-export type DocumentTemplate = {
-  id: string
-  area: LegalArea
-  category: 'peticao-inicial' | 'contestacao' | 'recurso'
-  title: string
-  estimatedMinutes: number
-  variables: string[]
-}
-
-export type LegalDocument = {
-  id: string
-  title: string
-  caseTitle: string
-  templateTitle: string
-  status: 'draft' | 'ready' | 'exported'
-  updatedAt: string
-  wordCount: number
-}
-
-export type ClientMessage = {
-  id: string
-  clientName: string
-  caseTitle: string
-  tone: 'formal' | 'simples' | 'whatsapp'
-  message: string
 }

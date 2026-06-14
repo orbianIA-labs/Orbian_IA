@@ -26,28 +26,37 @@ export function NewCasePage() {
       <section className="page-heading compact">
         <div>
           <p className="eyebrow">Novo caso</p>
-          <h1>Cadastrar caso</h1>
+          <h1>Criar caso e iniciar fluxo</h1>
         </div>
       </section>
 
       <form className="form-panel" onSubmit={handleSubmit(onSubmit)}>
+        <h2>Passo 1 / Dados do cliente</h2>
         <label>
-          Titulo
-          <input {...register('title')} placeholder="Ex.: Indenizacao por dano moral" />
-          {errors.title && <small>{errors.title.message}</small>}
-        </label>
-        <label>
-          Cliente
+          Nome
           <input {...register('clientName')} placeholder="Nome do cliente" />
           {errors.clientName && <small>{errors.clientName.message}</small>}
         </label>
         <label>
-          Numero CNJ
-          <input {...register('caseNumber')} placeholder="0000000-00.0000.0.00.0000" />
-          {errors.caseNumber && <small>{errors.caseNumber.message}</small>}
+          Telefone
+          <input placeholder="(00) 00000-0000" />
         </label>
         <label>
-          Area
+          Email
+          <input placeholder="cliente@email.com" />
+        </label>
+        <label>
+          CPF
+          <input placeholder="000.000.000-00" />
+        </label>
+        <label>
+          Observacoes
+          <input placeholder="Resumo livre do atendimento" />
+        </label>
+
+        <h2>Passo 2 / Fluxo especializado</h2>
+        <label>
+          Area juridica
           <select {...register('area')}>
             <option value="civil">Civel</option>
             <option value="trabalhista">Trabalhista</option>
@@ -57,7 +66,61 @@ export function NewCasePage() {
             <option value="consumidor">Consumidor</option>
           </select>
         </label>
-        <Button type="submit">Salvar caso</Button>
+        <label>
+          Objetivo do caso
+          <select>
+            <option>Especialista em BPC/LOAS</option>
+            <option>Especialista em Aposentadoria</option>
+            <option>Especialista em Alimentos</option>
+            <option>Especialista em Rescisao</option>
+            <option>Especialista em Dano Moral</option>
+          </select>
+        </label>
+        <label>
+          Titulo interno
+          <input {...register('title')} placeholder="Ex.: BPC/LOAS - Maria Silva" />
+          {errors.title && <small>{errors.title.message}</small>}
+        </label>
+
+        <h2>Passo 3 / Preenchimento inteligente</h2>
+        <label>
+          Renda familiar
+          <input placeholder="Ex.: R$ 1.800" />
+        </label>
+        <label>
+          Existe documento medico ou prova principal?
+          <select>
+            <option>Sim</option>
+            <option>Nao</option>
+            <option>Precisa solicitar</option>
+          </select>
+        </label>
+        <label>
+          Numero CNJ
+          <input {...register('caseNumber')} placeholder="0000000-00.0000.0.00.0000" />
+          {errors.caseNumber && <small>{errors.caseNumber.message}</small>}
+        </label>
+
+        <h2>Passo 4 / Documentos recomendados</h2>
+        <div className="checklist">
+          <span>RG</span>
+          <span>CPF</span>
+          <span>Comprovante de residencia</span>
+          <span>CadUnico ou documento equivalente</span>
+          <span>Laudo ou prova principal</span>
+        </div>
+
+        <h2>Passo 5 / Financeiro</h2>
+        <label>
+          Valor da causa
+          <input placeholder="R$ 0,00" />
+        </label>
+        <label>
+          Honorarios
+          <input placeholder="R$ 0,00" />
+        </label>
+
+        <Button type="submit">Salvar e iniciar fluxo</Button>
       </form>
     </div>
   )

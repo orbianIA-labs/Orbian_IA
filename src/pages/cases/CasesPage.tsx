@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
-import { areaLabel, formatDate } from '@/lib/utils'
+import { areaLabel } from '@/lib/utils'
 import { cases } from '@/services/mockData'
 
 export function CasesPage() {
@@ -24,12 +24,13 @@ export function CasesPage() {
         {cases.map((legalCase) => (
           <Link className="table-row" key={legalCase.id} to={`/cases/${legalCase.id}`}>
             <div>
-              <strong>{legalCase.title}</strong>
-              <span>{legalCase.caseNumber ?? 'Sem numero CNJ'}</span>
+              <strong>{legalCase.clientName}</strong>
+              <span>{legalCase.flow}</span>
             </div>
-            <span>{legalCase.clientName}</span>
             <span>{areaLabel(legalCase.area)}</span>
-            <time>{formatDate(legalCase.updatedAt)}</time>
+            <span>{legalCase.category}</span>
+            <span>{legalCase.status === 'active' ? 'Em andamento' : 'Aguardando'}</span>
+            <span>{legalCase.nextAction}</span>
           </Link>
         ))}
       </section>

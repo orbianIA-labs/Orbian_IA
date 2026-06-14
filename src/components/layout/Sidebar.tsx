@@ -1,22 +1,18 @@
 import {
-  BadgeDollarSign,
+  BriefcaseBusiness,
   CalendarDays,
-  FileText,
   FolderKanban,
   Home,
-  ShieldCheck,
-  Users,
+  UserCircle,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home },
   { to: '/cases', label: 'Casos', icon: FolderKanban },
-  { to: '/documents', label: 'Pecas', icon: FileText },
   { to: '/deadlines', label: 'Prazos', icon: CalendarDays },
-  { to: '/clients', label: 'Clientes', icon: Users },
-  { to: '/billing', label: 'Plano', icon: BadgeDollarSign },
-  { to: '/lgpd', label: 'LGPD', icon: ShieldCheck },
+  { to: '/admin', label: 'Administracao', icon: BriefcaseBusiness },
+  { to: '/profile', label: 'Perfil', icon: UserCircle },
 ]
 
 export function Sidebar() {
