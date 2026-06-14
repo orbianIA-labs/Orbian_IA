@@ -1,0 +1,60 @@
+import axios from 'axios'
+import { useAuthStore } from '@/store/authStore'
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  withCredentials: true,
+})
+
+api.interceptors.request.use((config) => {
+  const { accessToken } = useAuthStore.getState()
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return config
+})
+
+let isRefreshing = false
+let pendingRequests: Array<(token: string) => void> = []
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config
+
+    if (error.response?.status === 401 && original && !original._retry) {
+      original._retry = true
+
+      if (!isRefreshing) {
+        isRefreshing = true
+        try {
+          const { data } = await axios.post(
+            `${import.meta.env.VITE_API_URL ?? '/api'}/auth/refresh`,
+            {},
+            { withCredentials: true },
+          )
+          useAuthStore.getState().setTokens(data.accessToken, data.user)
+          pendingRequests.forEach((callback) => callback(data.accessToken))
+          pendingRequests = []
+        } catch {
+          useAuthStore.getState().clearAuth()
+          window.location.href = '/login'
+          return Promise.reject(error)
+        } finally {
+          isRefreshing = false
+        }
+      }
+
+      return new Promise((resolve) => {
+        pendingRequests.push((token) => {
+          original.headers.Authorization = `Bearer ${token}`
+          resolve(api(original))
+        })
+      })
+    }
+
+    return Promise.reject(error)
+  },
+)
+
+export default api
