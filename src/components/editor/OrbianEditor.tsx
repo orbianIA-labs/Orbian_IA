@@ -1,4 +1,4 @@
-﻿import CharacterCount from '@tiptap/extension-character-count'
+import CharacterCount from '@tiptap/extension-character-count'
 import Placeholder from '@tiptap/extension-placeholder'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'

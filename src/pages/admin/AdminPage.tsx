@@ -1,4 +1,4 @@
-﻿import { Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { demoUser } from '@/services/mockData'
 
