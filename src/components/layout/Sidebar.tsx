@@ -11,7 +11,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: Home },
   { to: '/cases', label: 'Casos', icon: FolderKanban },
   { to: '/deadlines', label: 'Prazos', icon: CalendarDays },
-  { to: '/admin', label: 'Administracao', icon: BriefcaseBusiness },
+  { to: '/admin', label: 'Planos', icon: BriefcaseBusiness },
   { to: '/profile', label: 'Perfil', icon: UserCircle },
 ]
 
