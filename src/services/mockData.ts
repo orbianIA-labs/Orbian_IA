@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   Deadline,
   LegalCase,
   User,
@@ -7,7 +7,7 @@ import type {
 export const demoUser: User = {
   id: 'usr_demo',
   name: 'Dra. Marina Costa',
-  email: 'marina@lexio.demo',
+  email: 'marina@Orbian.demo',
   plan: 'solo',
 }
 

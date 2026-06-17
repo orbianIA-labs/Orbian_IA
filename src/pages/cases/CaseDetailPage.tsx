@@ -1,7 +1,7 @@
-import { useParams } from 'react-router-dom'
+﻿import { useParams } from 'react-router-dom'
 import { Copy, Download, FileText, MessageSquareText } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { LexioEditor } from '@/components/editor/LexioEditor'
+import { OrbianEditor } from '@/components/editor/OrbianEditor'
 import { areaLabel, formatDate } from '@/lib/utils'
 import { cases, deadlines } from '@/services/mockData'
 
@@ -81,7 +81,7 @@ export function CaseDetailPage() {
       <section className="two-column">
         <article className="panel">
           <h2>Peca gerada</h2>
-          <LexioEditor content={generatedPiece} readOnly />
+          <OrbianEditor content={generatedPiece} readOnly />
           <div className="button-row">
             <Button variant="secondary">
               <Download size={17} />

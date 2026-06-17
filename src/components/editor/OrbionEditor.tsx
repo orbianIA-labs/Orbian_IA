@@ -1,16 +1,16 @@
-import CharacterCount from '@tiptap/extension-character-count'
+﻿import CharacterCount from '@tiptap/extension-character-count'
 import Placeholder from '@tiptap/extension-placeholder'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Bold, Italic, List, Redo2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
-type LexioEditorProps = {
+type OrbianEditorProps = {
   content: string
   readOnly?: boolean
 }
 
-export function LexioEditor({ content, readOnly = false }: LexioEditorProps) {
+export function OrbianEditor({ content, readOnly = false }: OrbianEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -67,7 +67,7 @@ export function LexioEditor({ content, readOnly = false }: LexioEditorProps) {
           </Button>
         </div>
       )}
-      <EditorContent className="lexio-editor" editor={editor} />
+      <EditorContent className="Orbian-editor" editor={editor} />
       {!readOnly && (
         <footer className="editor-footer">{editor?.storage.characterCount.words() ?? 0} palavras</footer>
       )}

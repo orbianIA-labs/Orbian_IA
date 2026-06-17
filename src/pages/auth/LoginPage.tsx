@@ -1,4 +1,4 @@
-import { Scale } from 'lucide-react'
+﻿import { Scale } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/services/auth.service'
@@ -19,12 +19,12 @@ export function LoginPage() {
       <section className="auth-panel">
         <div className="auth-brand">
           <Scale size={30} />
-          <span>Lexio.IA</span>
+          <span>Orbian</span>
         </div>
-        <h1>Do caso a peca pronta.</h1>
+        <h1>O sistema operacional do advogado.</h1>
         <p>
-          Plataforma operacional para advogados que precisam organizar casos, prazos,
-          documentos e comunicacao com clientes em um unico fluxo.
+          Gerencie casos, monitore processos, crie pecas juridicas e controle prazos
+          em um unico ambiente.
         </p>
         <Button onClick={handleDemoLogin}>Entrar na beta</Button>
       </section>

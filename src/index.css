@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --background: oklch(0.968 0.0059 239.8195);
   --foreground: oklch(0.3098 0.0748 248.9089);
   --card: oklch(1 0 0);
@@ -305,6 +305,11 @@ h2 {
   background: transparent;
 }
 
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .button-danger {
   color: var(--surface);
   background: var(--danger);
@@ -531,7 +536,7 @@ h2 {
 
 .case-progress-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.7fr) 60px;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.6fr) 24px;
   align-items: center;
   gap: 16px;
   padding: 14px;
@@ -693,13 +698,13 @@ progress::-webkit-progress-value {
   font-size: 14px;
 }
 
-.lexio-editor {
+.Orbian-editor {
   min-height: 460px;
   padding: 34px;
   line-height: 1.7;
 }
 
-.lexio-editor .tiptap {
+.Orbian-editor .tiptap {
   min-height: 390px;
   outline: 0;
 }

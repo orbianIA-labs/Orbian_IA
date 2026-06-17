@@ -1,4 +1,4 @@
-import {
+﻿import {
   BriefcaseBusiness,
   CalendarDays,
   FolderKanban,
@@ -19,9 +19,9 @@ export function Sidebar() {
   return (
     <aside className="sidebar" aria-label="Navegacao principal">
       <div className="brand">
-        <span className="brand-mark">L</span>
+        <span className="brand-mark">O</span>
         <div>
-          <strong>Lexio.IA</strong>
+          <strong>Orbian</strong>
           <small>Beta operacional</small>
         </div>
       </div>

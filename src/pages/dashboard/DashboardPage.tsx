@@ -1,28 +1,44 @@
-import { ArrowRight, CalendarClock, CircleDollarSign, FolderPlus, MessageSquareText } from 'lucide-react'
+import { ArrowRight, CalendarClock, CircleDollarSign, FlaskConical, FolderPlus, MessageSquareText, Scale, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { formatDate } from '@/lib/utils'
-import { cases } from '@/services/mockData'
-import { deadlines } from '@/services/mockData'
+import { cases, deadlines } from '@/services/mockData'
+
+const urgentCases = cases.slice(0, 3)
 
 export function DashboardPage() {
-  const criticalDeadlines = deadlines.filter((deadline) => deadline.priority === 'critical')
+  const criticalDeadlines = deadlines.filter((d) => d.priority === 'critical')
+  const weekDeadlines = deadlines.filter((d) => d.businessDaysLeft <= 7)
 
   return (
     <div className="page-stack">
       <section className="page-heading">
         <div>
           <p className="eyebrow">Fluxo operacional diario</p>
-          <h1>Bom dia. Estes sao os pontos que precisam da sua atencao.</h1>
+          <h1>Dashboard</h1>
+          <p>O que exige sua atencao hoje</p>
         </div>
+      </section>
+
+      {/* Quick actions */}
+      <div className="button-row">
         <Link to="/cases/new">
           <Button>
-            <FolderPlus size={18} />
+            <FolderPlus size={17} />
             Novo caso
           </Button>
         </Link>
-      </section>
+        <Button variant="secondary">
+          <Zap size={17} />
+          Usar fluxo juridico
+        </Button>
+        <Button variant="secondary">
+          <FlaskConical size={17} />
+          Testar demonstracao
+        </Button>
+      </div>
 
+      {/* Metrics */}
       <section className="metric-grid">
         <article className="metric-card critical">
           <CalendarClock size={22} />
@@ -31,7 +47,7 @@ export function DashboardPage() {
         </article>
         <article className="metric-card">
           <CalendarClock size={22} />
-          <strong>3</strong>
+          <strong>{weekDeadlines.length}</strong>
           <span>Prazos da semana</span>
         </article>
         <article className="metric-card">
@@ -51,14 +67,53 @@ export function DashboardPage() {
         </article>
       </section>
 
+      {/* Prazos urgentes (left) + Casos urgentes (right) */}
       <section className="two-column">
         <article className="panel">
           <div className="panel-title">
-            <h2>Proximas acoes</h2>
+            <h2>Prazos urgentes</h2>
+            <Link to="/deadlines">Ver todos</Link>
+          </div>
+          <div className="list">
+            {deadlines.map((deadline) => (
+              <div
+                className={`list-row deadline-row-${deadline.priority}`}
+                key={deadline.id}
+              >
+                <div>
+                  <strong>{deadline.title}</strong>
+                  <span>{deadline.caseTitle}</span>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <time style={{ display: 'block', fontWeight: 700 }}>
+                    {formatDate(deadline.dueDate)}
+                  </time>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color:
+                        deadline.priority === 'critical'
+                          ? 'var(--danger)'
+                          : deadline.priority === 'attention'
+                            ? 'var(--warning)'
+                            : 'var(--muted)',
+                    }}
+                  >
+                    {deadline.businessDaysLeft} dias uteis
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-title">
+            <h2>Casos urgentes</h2>
             <Link to="/cases">Ver casos</Link>
           </div>
           <div className="list">
-            {cases.map((legalCase) => (
+            {urgentCases.map((legalCase) => (
               <Link className="list-row action-row" key={legalCase.id} to={`/cases/${legalCase.id}`}>
                 <div>
                   <strong>{legalCase.clientName}</strong>
@@ -69,40 +124,26 @@ export function DashboardPage() {
             ))}
           </div>
         </article>
-
-        <article className="panel">
-          <div className="panel-title">
-            <h2>Prazos urgentes</h2>
-            <Link to="/deadlines">Ver todos</Link>
-          </div>
-          <div className="list">
-            {deadlines.map((deadline) => (
-              <div className="list-row" key={deadline.id}>
-                <div>
-                  <strong>{deadline.title}</strong>
-                  <span>{deadline.caseTitle}</span>
-                </div>
-                <time>{formatDate(deadline.dueDate)}</time>
-              </div>
-            ))}
-          </div>
-        </article>
       </section>
 
+      {/* Proximas acoes — full width */}
       <article className="panel">
         <div className="panel-title">
-          <h2>Casos recentes</h2>
-          <Link to="/cases">Abrir casos</Link>
+          <h2>Proximas acoes</h2>
+          <Link to="/cases">Ver casos</Link>
         </div>
         <div className="case-progress-list">
           {cases.map((legalCase) => (
             <Link className="case-progress-row" key={legalCase.id} to={`/cases/${legalCase.id}`}>
               <div>
                 <strong>{legalCase.clientName}</strong>
-                <span>{legalCase.category}</span>
+                <span>{legalCase.nextAction}</span>
               </div>
-              <progress max="100" value={legalCase.progress} />
-              <strong>{legalCase.progress}%</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Scale size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--muted)', fontSize: 13 }}>{legalCase.category}</span>
+              </div>
+              <ArrowRight size={17} style={{ color: 'var(--muted)', marginLeft: 'auto' }} />
             </Link>
           ))}
         </div>

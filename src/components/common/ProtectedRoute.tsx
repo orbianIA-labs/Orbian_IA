@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import type { PropsWithChildren } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { authService } from '@/services/auth.service'
@@ -21,7 +21,7 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
   })
 
   if (isLoading) {
-    return <div className="screen-loader">Carregando Lexio...</div>
+    return <div className="screen-loader">Carregando Orbian...</div>
   }
 
   if (!useAuthStore.getState().accessToken) {
