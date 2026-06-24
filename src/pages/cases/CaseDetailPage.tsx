@@ -1,5 +1,5 @@
-import { useParams } from 'react-router-dom'
-import { Copy, Download, FileText, MessageSquareText } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Copy, Download, MessageSquareText, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OrbianEditor } from '@/components/editor/OrbianEditor'
 import { areaLabel, formatDate } from '@/lib/utils'
@@ -14,6 +14,7 @@ const generatedPiece = `
 
 export function CaseDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const legalCase = cases.find((item) => item.id === id) ?? cases[0]
   const caseDeadlines = deadlines.filter((deadline) => deadline.caseId === legalCase.id)
 
@@ -25,9 +26,9 @@ export function CaseDetailPage() {
           <h1>{legalCase.clientName}</h1>
           <p>{areaLabel(legalCase.area)} / {legalCase.category}</p>
         </div>
-        <Button>
-          <FileText size={18} />
-          Gerar peca
+        <Button onClick={() => navigate(`/cases/${id}/pecas`)}>
+          <Sparkles size={18} />
+          Peças com IA
         </Button>
       </section>
 
