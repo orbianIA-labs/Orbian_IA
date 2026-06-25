@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
   withCredentials: true,
 })
 
@@ -28,17 +28,28 @@ api.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true
         try {
+          const refreshToken = localStorage.getItem('refresh_token')
+          if (!refreshToken) throw new Error('No refresh token')
+
           const { data } = await axios.post(
-            `${import.meta.env.VITE_API_URL ?? '/api'}/auth/refresh`,
-            {},
-            { withCredentials: true },
+            `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}/api/auth/refresh`,
+            { refreshToken },
           )
-          useAuthStore.getState().setTokens(data.accessToken, data.user)
-          pendingRequests.forEach((callback) => callback(data.accessToken))
+
+          localStorage.setItem('refresh_token', data.refreshToken)
+          useAuthStore.getState().setTokens(data.accessToken, {
+            id: data.usuario.id,
+            name: data.usuario.nome,
+            email: data.usuario.email,
+            plan: data.usuario.plano,
+          })
+
+          pendingRequests.forEach((cb) => cb(data.accessToken))
           pendingRequests = []
         } catch {
+          localStorage.removeItem('refresh_token')
           useAuthStore.getState().clearAuth()
-          window.location.href = '/login'
+          window.location.href = '/#/login'
           return Promise.reject(error)
         } finally {
           isRefreshing = false

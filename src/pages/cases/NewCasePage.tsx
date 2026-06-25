@@ -4,11 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
 import { casesService } from '@/services/cases.service'
+import { useState } from 'react'
 
 export function NewCasePage() {
   const navigate = useNavigate()
+  const [error, setError] = useState('')
+
   const {
-    formState: { errors },
+    formState: { errors, isSubmitting },
     handleSubmit,
     register,
   } = useForm<CreateCaseInput>({
@@ -17,8 +20,13 @@ export function NewCasePage() {
   })
 
   async function onSubmit(input: CreateCaseInput) {
-    await casesService.create(input)
-    navigate('/cases')
+    setError('')
+    try {
+      const caso = await casesService.create(input)
+      navigate(`/cases/${caso.id}`)
+    } catch {
+      setError('Erro ao criar caso. Verifique os dados e tente novamente.')
+    }
   }
 
   return (
@@ -39,88 +47,59 @@ export function NewCasePage() {
         </label>
         <label>
           Telefone
-          <input placeholder="(00) 00000-0000" />
+          <input {...register('clientPhone')} placeholder="(00) 00000-0000" />
         </label>
         <label>
           Email
-          <input placeholder="cliente@email.com" />
+          <input {...register('clientEmail')} placeholder="cliente@email.com" />
+          {errors.clientEmail && <small>{errors.clientEmail.message}</small>}
         </label>
         <label>
           CPF
-          <input placeholder="000.000.000-00" />
-        </label>
-        <label>
-          Observacoes
-          <input placeholder="Resumo livre do atendimento" />
+          <input {...register('clientCpf')} placeholder="000.000.000-00" />
         </label>
 
         <h2>Passo 2 / Fluxo especializado</h2>
         <label>
-          Area juridica
+          Área jurídica
           <select {...register('area')}>
-            <option value="civil">Civel</option>
+            <option value="civil">Cível</option>
             <option value="trabalhista">Trabalhista</option>
-            <option value="tributario">Tributario</option>
+            <option value="tributario">Tributário</option>
             <option value="penal">Penal</option>
-            <option value="familia">Familia</option>
+            <option value="familia">Família</option>
             <option value="consumidor">Consumidor</option>
           </select>
         </label>
         <label>
           Objetivo do caso
-          <select>
-            <option>Especialista em BPC/LOAS</option>
-            <option>Especialista em Aposentadoria</option>
-            <option>Especialista em Alimentos</option>
-            <option>Especialista em Rescisao</option>
-            <option>Especialista em Dano Moral</option>
+          <select {...register('flow')}>
+            <option value="">Selecione...</option>
+            <option value="Especialista em BPC/LOAS">Especialista em BPC/LOAS</option>
+            <option value="Especialista em Aposentadoria">Especialista em Aposentadoria</option>
+            <option value="Especialista em Alimentos">Especialista em Alimentos</option>
+            <option value="Especialista em Rescisão">Especialista em Rescisão</option>
+            <option value="Especialista em Dano Moral">Especialista em Dano Moral</option>
           </select>
         </label>
         <label>
-          Titulo interno
+          Título interno
           <input {...register('title')} placeholder="Ex.: BPC/LOAS - Maria Silva" />
           {errors.title && <small>{errors.title.message}</small>}
         </label>
 
-        <h2>Passo 3 / Preenchimento inteligente</h2>
+        <h2>Passo 3 / Número do processo</h2>
         <label>
-          Renda familiar
-          <input placeholder="Ex.: R$ 1.800" />
-        </label>
-        <label>
-          Existe documento medico ou prova principal?
-          <select>
-            <option>Sim</option>
-            <option>Nao</option>
-            <option>Precisa solicitar</option>
-          </select>
-        </label>
-        <label>
-          Numero CNJ
+          Número CNJ
           <input {...register('caseNumber')} placeholder="0000000-00.0000.0.00.0000" />
           {errors.caseNumber && <small>{errors.caseNumber.message}</small>}
         </label>
 
-        <h2>Passo 4 / Documentos recomendados</h2>
-        <div className="checklist">
-          <span>RG</span>
-          <span>CPF</span>
-          <span>Comprovante de residencia</span>
-          <span>CadUnico ou documento equivalente</span>
-          <span>Laudo ou prova principal</span>
-        </div>
+        {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
 
-        <h2>Passo 5 / Financeiro</h2>
-        <label>
-          Valor da causa
-          <input placeholder="R$ 0,00" />
-        </label>
-        <label>
-          Honorarios
-          <input placeholder="R$ 0,00" />
-        </label>
-
-        <Button type="submit">Salvar e iniciar fluxo</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Salvando...' : 'Salvar e iniciar fluxo'}
+        </Button>
       </form>
     </div>
   )

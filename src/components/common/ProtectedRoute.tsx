@@ -9,7 +9,7 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
   const setTokens = useAuthStore((state) => state.setTokens)
   const location = useLocation()
 
-  const { isLoading } = useQuery({
+  const { isLoading, isError } = useQuery({
     queryKey: ['auth-check'],
     queryFn: async () => {
       const session = await authService.checkSession()
@@ -24,7 +24,7 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
     return <div className="screen-loader">Carregando Orbian...</div>
   }
 
-  if (!useAuthStore.getState().accessToken) {
+  if (!accessToken || isError) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
