@@ -94,6 +94,13 @@ export function NewCasePage() {
           <input {...register('caseNumber')} placeholder="0000000-00.0000.0.00.0000" />
           {errors.caseNumber && <small>{errors.caseNumber.message}</small>}
         </label>
+        <label>
+          Tribunal
+          <input {...register('tribunal')} placeholder="Ex.: TJSP, TRF3, TST" />
+          <small style={{ color: 'var(--text-2)' }}>
+            Necessário para o monitoramento processual automático
+          </small>
+        </label>
 
         {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
 

@@ -13,12 +13,19 @@ export type User = {
   plan: 'free' | 'solo' | 'pro'
 }
 
-export type CaseStatus = 'active' | 'waiting' | 'done'
+// Status alinhados ao backend (PRD)
+export type CaseStatus =
+  | 'em_andamento'
+  | 'aguardando_documentos'
+  | 'aguardando_prazo'
+  | 'finalizado'
+  | 'arquivado'
 
 export type LegalCase = {
   id: string
   title: string
   caseNumber?: string
+  tribunal: string
   clientName: string
   clientPhone: string
   clientEmail: string
@@ -50,4 +57,23 @@ export type Deadline = {
   businessDaysLeft: number
   priority: DeadlinePriority
   completed: boolean
+  responsavel: string
+  observacoes: string
+}
+
+export type Movimentacao = {
+  id: string
+  caseId: string
+  date: string
+  description: string
+  source: string
+}
+
+export type MovimentacaoRecente = {
+  id: string
+  caseId: string
+  clientName: string
+  caseNumber?: string
+  date: string
+  description: string
 }

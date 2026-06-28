@@ -1,15 +1,16 @@
-import { ArrowRight, CalendarClock, CircleDollarSign, FolderPlus, Scale } from 'lucide-react'
+import { ArrowRight, CalendarClock, CircleDollarSign, FolderPlus, History, Scale } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
-import { formatDate } from '@/lib/utils'
+import { caseStatusLabel, formatDate } from '@/lib/utils'
 import { casesService } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
+import { monitoringService } from '@/services/monitoring.service'
 
 export function DashboardPage() {
   const { data: cases = [] } = useQuery({
     queryKey: ['cases'],
-    queryFn: casesService.list,
+    queryFn: () => casesService.list(),
   })
 
   const { data: deadlines = [] } = useQuery({
@@ -17,9 +18,17 @@ export function DashboardPage() {
     queryFn: deadlinesService.list,
   })
 
+  const { data: movimentacoes = [] } = useQuery({
+    queryKey: ['movimentacoes-recentes'],
+    queryFn: () => monitoringService.recentes(6),
+  })
+
   const criticalDeadlines = deadlines.filter((d) => d.priority === 'critical' && !d.completed)
   const weekDeadlines = deadlines.filter((d) => d.businessDaysLeft <= 7 && !d.completed)
-  const urgentCases = cases.slice(0, 3)
+  const aguardando = cases.filter(
+    (c) => c.status === 'aguardando_documentos' || c.status === 'aguardando_prazo',
+  )
+  const recentCases = cases.slice(0, 3)
 
   return (
     <div className="page-stack">
@@ -58,8 +67,8 @@ export function DashboardPage() {
         </article>
         <article className="metric-card">
           <Scale size={22} />
-          <strong>{deadlines.filter((d) => !d.completed).length}</strong>
-          <span>Prazos pendentes</span>
+          <strong>{aguardando.length}</strong>
+          <span>Clientes aguardando</span>
         </article>
       </section>
 
@@ -107,18 +116,67 @@ export function DashboardPage() {
 
         <article className="panel">
           <div className="panel-title">
+            <h2>
+              <History size={17} style={{ display: 'inline', marginRight: 6, verticalAlign: -3 }} />
+              Últimas movimentações
+            </h2>
+          </div>
+          {movimentacoes.length === 0 && (
+            <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
+              Nenhuma movimentação. Atualize um processo na tela do caso.
+            </p>
+          )}
+          <div className="list">
+            {movimentacoes.map((mov) => (
+              <Link className="list-row action-row" key={mov.id} to={`/cases/${mov.caseId}`}>
+                <div>
+                  <strong>{mov.clientName}</strong>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-2)' }}>
+                    {mov.description}
+                  </span>
+                </div>
+                <time style={{ flexShrink: 0 }}>{formatDate(mov.date)}</time>
+              </Link>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section className="two-column">
+        <article className="panel">
+          <div className="panel-title">
             <h2>Casos recentes</h2>
             <Link to="/cases">Ver casos</Link>
           </div>
-          {urgentCases.length === 0 && (
+          {recentCases.length === 0 && (
             <p style={{ color: 'var(--text-2)', fontSize: 14 }}>Nenhum caso cadastrado</p>
           )}
           <div className="list">
-            {urgentCases.map((legalCase) => (
+            {recentCases.map((legalCase) => (
               <Link className="list-row action-row" key={legalCase.id} to={`/cases/${legalCase.id}`}>
                 <div>
                   <strong>{legalCase.clientName}</strong>
-                  <span>{legalCase.nextAction}</span>
+                  <span>{caseStatusLabel(legalCase.status)}</span>
+                </div>
+                <ArrowRight size={17} />
+              </Link>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-title">
+            <h2>Clientes aguardando atualização</h2>
+          </div>
+          {aguardando.length === 0 && (
+            <p style={{ color: 'var(--text-2)', fontSize: 14 }}>Nenhum cliente aguardando</p>
+          )}
+          <div className="list">
+            {aguardando.map((legalCase) => (
+              <Link className="list-row action-row" key={legalCase.id} to={`/cases/${legalCase.id}`}>
+                <div>
+                  <strong>{legalCase.clientName}</strong>
+                  <span>{caseStatusLabel(legalCase.status)}</span>
                 </div>
                 <ArrowRight size={17} />
               </Link>
@@ -126,30 +184,6 @@ export function DashboardPage() {
           </div>
         </article>
       </section>
-
-      {cases.length > 0 && (
-        <article className="panel">
-          <div className="panel-title">
-            <h2>Todos os casos</h2>
-            <Link to="/cases">Ver casos</Link>
-          </div>
-          <div className="case-progress-list">
-            {cases.map((legalCase) => (
-              <Link className="case-progress-row" key={legalCase.id} to={`/cases/${legalCase.id}`}>
-                <div>
-                  <strong>{legalCase.clientName}</strong>
-                  <span>{legalCase.nextAction}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Scale size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                  <span style={{ color: 'var(--muted)', fontSize: 13 }}>{legalCase.category}</span>
-                </div>
-                <ArrowRight size={17} style={{ color: 'var(--muted)', marginLeft: 'auto' }} />
-              </Link>
-            ))}
-          </div>
-        </article>
-      )}
     </div>
   )
 }

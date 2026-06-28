@@ -6,6 +6,7 @@ import {
   UserCircle,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { OrbianLogo } from '@/components/brand/OrbianLogo'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home },
@@ -19,10 +20,10 @@ export function Sidebar() {
   return (
     <aside className="sidebar" aria-label="Navegacao principal">
       <div className="brand">
-        <span className="brand-mark">O</span>
+        <OrbianLogo size={36} />
         <div>
           <strong>Orbian</strong>
-          <small>Beta operacional</small>
+          <small>Execução jurídica</small>
         </div>
       </div>
 

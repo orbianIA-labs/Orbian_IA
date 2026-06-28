@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Scale } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { OrbianLogo } from '@/components/brand/OrbianLogo'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
 
@@ -32,13 +32,12 @@ export function LoginPage() {
     <main className="auth-page">
       <section className="auth-panel">
         <div className="auth-brand">
-          <Scale size={30} />
-          <span>Orbian</span>
+          <OrbianLogo size={34} withWordmark />
         </div>
-        <h1>O sistema operacional do advogado.</h1>
+        <h1>O sistema operacional da advocacia.</h1>
         <p>
-          Gerencie casos, monitore processos, crie peças jurídicas e controle prazos em um único
-          ambiente.
+          Gerencie casos, monitore processos, crie peças com IA e controle prazos — tudo em um único
+          fluxo de execução.
         </p>
         <form onSubmit={handleLogin} className="form-stack">
           <label>

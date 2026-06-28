@@ -1,14 +1,18 @@
-import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
-import { areaLabel } from '@/lib/utils'
+import { areaLabel, caseStatusLabel, caseStatusOptions } from '@/lib/utils'
 import { casesService } from '@/services/cases.service'
 
 export function CasesPage() {
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+
   const { data: cases = [], isLoading } = useQuery({
-    queryKey: ['cases'],
-    queryFn: casesService.list,
+    queryKey: ['cases', { status, q: search }],
+    queryFn: () => casesService.list({ status: status || undefined, q: search || undefined }),
   })
 
   return (
@@ -16,7 +20,7 @@ export function CasesPage() {
       <section className="page-heading compact">
         <div>
           <p className="eyebrow">Fonte de verdade</p>
-          <h1>Casos ativos</h1>
+          <h1>Casos</h1>
         </div>
         <Link to="/cases/new">
           <Button>
@@ -24,6 +28,26 @@ export function CasesPage() {
             Novo caso
           </Button>
         </Link>
+      </section>
+
+      <section className="toolbar">
+        <div className="search-field">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Buscar por cliente, processo ou categoria..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">Todos os status</option>
+          {caseStatusOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </section>
 
       {isLoading && <p style={{ color: 'var(--text-2)', padding: '1rem' }}>Carregando...</p>}
@@ -37,22 +61,22 @@ export function CasesPage() {
             </div>
             <span>{areaLabel(legalCase.area)}</span>
             <span>{legalCase.category}</span>
-            <span>
-              {legalCase.status === 'active'
-                ? 'Em andamento'
-                : legalCase.status === 'done'
-                  ? 'Concluído'
-                  : 'Aguardando'}
-            </span>
-            <span>{legalCase.nextAction}</span>
+            <span>{caseStatusLabel(legalCase.status)}</span>
+            <span>{legalCase.caseNumber ?? '—'}</span>
           </Link>
         ))}
         {!isLoading && cases.length === 0 && (
           <p style={{ color: 'var(--text-2)', padding: '1.5rem', textAlign: 'center' }}>
-            Nenhum caso cadastrado.{' '}
-            <Link to="/cases/new" style={{ color: 'var(--accent)' }}>
-              Criar primeiro caso
-            </Link>
+            {search || status ? (
+              'Nenhum caso encontrado com esses filtros.'
+            ) : (
+              <>
+                Nenhum caso cadastrado.{' '}
+                <Link to="/cases/new" style={{ color: 'var(--accent)' }}>
+                  Criar primeiro caso
+                </Link>
+              </>
+            )}
           </p>
         )}
       </section>

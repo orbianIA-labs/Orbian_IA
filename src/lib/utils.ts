@@ -25,3 +25,15 @@ export function areaLabel(area: string) {
 
   return labels[area] ?? area
 }
+
+export const caseStatusOptions = [
+  { value: 'em_andamento', label: 'Em andamento' },
+  { value: 'aguardando_documentos', label: 'Aguardando documentos' },
+  { value: 'aguardando_prazo', label: 'Aguardando prazo' },
+  { value: 'finalizado', label: 'Finalizado' },
+  { value: 'arquivado', label: 'Arquivado' },
+] as const
+
+export function caseStatusLabel(status: string) {
+  return caseStatusOptions.find((o) => o.value === status)?.label ?? status
+}

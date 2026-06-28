@@ -16,7 +16,7 @@ type PrazoResponse = {
 }
 
 function mapPriority(status: string): DeadlinePriority {
-  if (status === 'critico') return 'critical'
+  if (status === 'urgente') return 'critical'
   if (status === 'atencao') return 'attention'
   return 'normal'
 }
@@ -31,7 +31,25 @@ function mapPrazo(p: PrazoResponse): Deadline {
     businessDaysLeft: p.diasUteisRestantes,
     priority: mapPriority(p.status),
     completed: p.concluido,
+    responsavel: p.responsavel ?? '',
+    observacoes: p.observacoes ?? '',
   }
+}
+
+export type CreateDeadlineInput = {
+  casoId: string
+  titulo: string
+  dataVencimento: string
+  responsavel?: string
+  observacoes?: string
+}
+
+export type UpdateDeadlinePatch = {
+  titulo?: string
+  dataVencimento?: string
+  responsavel?: string
+  observacoes?: string
+  concluido?: boolean
 }
 
 export const deadlinesService = {
@@ -40,19 +58,26 @@ export const deadlinesService = {
     return data.map(mapPrazo)
   },
 
-  async create(payload: {
-    casoId: string
-    titulo: string
-    dataVencimento: string
-    responsavel?: string
-    observacoes?: string
-  }): Promise<Deadline> {
+  async create(payload: CreateDeadlineInput): Promise<Deadline> {
     const { data } = await api.post<PrazoResponse>('/api/prazos', payload)
     return mapPrazo(data)
   },
 
-  async complete(id: string): Promise<Deadline> {
-    const { data } = await api.patch<PrazoResponse>(`/api/prazos/${id}`, { concluido: true })
+  async update(id: string, patch: UpdateDeadlinePatch): Promise<Deadline> {
+    const { data } = await api.patch<PrazoResponse>(`/api/prazos/${id}`, patch)
     return mapPrazo(data)
+  },
+
+  async complete(id: string): Promise<Deadline> {
+    return this.update(id, { concluido: true })
+  },
+
+  async remove(id: string): Promise<void> {
+    await api.delete(`/api/prazos/${id}`)
+  },
+
+  async sendReminders(): Promise<{ prazos: number; mensagem: string }> {
+    const { data } = await api.post<{ prazos: number; mensagem: string }>('/api/prazos/lembretes')
+    return data
   },
 }

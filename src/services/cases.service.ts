@@ -15,17 +15,12 @@ type CasoResponse = {
   updatedAt: string
 }
 
-function mapStatus(s: string): CaseStatus {
-  if (s === 'concluido') return 'done'
-  if (s === 'arquivado') return 'waiting'
-  return 'active'
-}
-
 function mapCaso(c: CasoResponse): LegalCase {
   return {
     id: c.id,
     title: c.clienteNome,
     caseNumber: c.numeroProcesso ?? undefined,
+    tribunal: c.tribunal ?? '',
     clientName: c.clienteNome,
     clientPhone: '',
     clientEmail: '',
@@ -33,7 +28,7 @@ function mapCaso(c: CasoResponse): LegalCase {
     area: (c.areaJuridica ?? 'civil') as LegalArea,
     category: c.categoria ?? '',
     flow: c.categoria ?? '',
-    status: mapStatus(c.status),
+    status: (c.status ?? 'em_andamento') as CaseStatus,
     progress: 0,
     nextAction: 'Ver detalhes',
     claimValue: 0,
@@ -46,9 +41,22 @@ function mapCaso(c: CasoResponse): LegalCase {
   }
 }
 
+export type CaseFilters = {
+  status?: string
+  q?: string
+}
+
+export type UpdateCasePatch = {
+  numeroProcesso?: string | null
+  tribunal?: string | null
+  areaJuridica?: string | null
+  categoria?: string | null
+  status?: CaseStatus
+}
+
 export const casesService = {
-  async list(): Promise<LegalCase[]> {
-    const { data } = await api.get<CasoResponse[]>('/api/casos')
+  async list(filters: CaseFilters = {}): Promise<LegalCase[]> {
+    const { data } = await api.get<CasoResponse[]>('/api/casos', { params: filters })
     return data.map(mapCaso)
   },
 
@@ -68,10 +76,20 @@ export const casesService = {
     const { data: caso } = await api.post<CasoResponse>('/api/casos', {
       clienteId: cliente.id,
       numeroProcesso: input.caseNumber || null,
+      tribunal: input.tribunal || null,
       areaJuridica: input.area,
       categoria: input.flow || null,
     })
 
     return mapCaso(caso)
+  },
+
+  async update(id: string, patch: UpdateCasePatch): Promise<LegalCase> {
+    const { data } = await api.patch<CasoResponse>(`/api/casos/${id}`, patch)
+    return mapCaso(data)
+  },
+
+  async archive(id: string): Promise<LegalCase> {
+    return this.update(id, { status: 'arquivado' })
   },
 }

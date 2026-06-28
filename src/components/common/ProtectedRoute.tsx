@@ -24,7 +24,7 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
     return <div className="screen-loader">Carregando Orbian...</div>
   }
 
-  if (!accessToken || isError) {
+  if (!accessToken) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/Button'
 type OrbianEditorProps = {
   content: string
   readOnly?: boolean
+  onChange?: (html: string) => void
 }
 
-export function OrbianEditor({ content, readOnly = false }: OrbianEditorProps) {
+export function OrbianEditor({ content, readOnly = false, onChange }: OrbianEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -19,6 +20,7 @@ export function OrbianEditor({ content, readOnly = false }: OrbianEditorProps) {
     ],
     content,
     editable: !readOnly,
+    onUpdate: ({ editor }) => onChange?.(editor.getHTML()),
   })
 
   return (
