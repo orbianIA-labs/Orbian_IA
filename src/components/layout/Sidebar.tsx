@@ -1,28 +1,33 @@
-import {
-  BriefcaseBusiness,
-  CalendarDays,
-  FolderKanban,
-  Home,
-  UserCircle,
-} from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { CalendarDays, ChevronDown, FolderKanban, Home, Settings, Zap } from 'lucide-react'
+import { Link, NavLink } from 'react-router-dom'
 import { OrbianLogo } from '@/components/brand/OrbianLogo'
+import { useAuthStore } from '@/store/authStore'
+
+function initials(name?: string) {
+  if (!name) return 'O'
+  const parts = name.trim().split(/\s+/)
+  const first = parts[0]?.[0] ?? ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return (first + last).toUpperCase()
+}
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: Home },
+  { to: '/', label: 'Início', icon: Home },
+  { to: '/trabalho', label: 'Trabalho', icon: Zap },
   { to: '/cases', label: 'Casos', icon: FolderKanban },
-  { to: '/deadlines', label: 'Prazos', icon: CalendarDays },
-  { to: '/admin', label: 'Planos', icon: BriefcaseBusiness },
-  { to: '/profile', label: 'Perfil', icon: UserCircle },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+  { to: '/profile', label: 'Configurações', icon: Settings },
 ]
 
 export function Sidebar() {
+  const user = useAuthStore((s) => s.user)
+
   return (
     <aside className="sidebar" aria-label="Navegacao principal">
       <div className="brand">
         <OrbianLogo size={36} />
         <div>
-          <strong>Orbian</strong>
+          <strong>orbian</strong>
           <small>Execução jurídica</small>
         </div>
       </div>
@@ -43,6 +48,19 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      <div className="sidebar-spacer" />
+
+      <div className="sidebar-bottom">
+        <Link to="/profile" className="sidebar-user-row">
+          <span className="sidebar-avatar">{initials(user?.name)}</span>
+          <div className="sidebar-user-info">
+            <strong>{user?.name?.split(' ')[0]}</strong>
+            <span>Ver perfil</span>
+          </div>
+          <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} />
+        </Link>
+      </div>
     </aside>
   )
 }

@@ -9,7 +9,7 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
   const setTokens = useAuthStore((state) => state.setTokens)
   const location = useLocation()
 
-  const { isLoading, isError } = useQuery({
+  const { isLoading } = useQuery({
     queryKey: ['auth-check'],
     queryFn: async () => {
       const session = await authService.checkSession()

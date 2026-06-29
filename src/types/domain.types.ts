@@ -77,3 +77,11 @@ export type MovimentacaoRecente = {
   date: string
   description: string
 }
+
+export type Etapa = {
+  id: string
+  titulo: string
+  concluida: boolean
+  ordem: number
+  createdAt: string
+}

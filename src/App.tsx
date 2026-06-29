@@ -11,6 +11,8 @@ import { DeadlinesPage } from '@/pages/deadlines/DeadlinesPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { ProfilePage } from '@/pages/profile/ProfilePage'
 import { PecasPage } from '@/pages/pecas/PecasPage'
+import { TrabalhoPage } from '@/pages/trabalho/TrabalhoPage'
+import { AgendaPage } from '@/pages/agenda/AgendaPage'
 
 const queryClient = new QueryClient()
 
@@ -32,6 +34,8 @@ function App() {
             <Route path="cases/new" element={<NewCasePage />} />
             <Route path="cases/:id" element={<CaseDetailPage />} />
             <Route path="cases/:id/pecas" element={<PecasPage />} />
+            <Route path="trabalho" element={<TrabalhoPage />} />
+            <Route path="agenda" element={<AgendaPage />} />
             <Route path="deadlines" element={<DeadlinesPage />} />
             <Route path="admin" element={<AdminPage />} />
             <Route path="profile" element={<ProfilePage />} />

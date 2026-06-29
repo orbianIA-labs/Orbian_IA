@@ -1,7 +1,7 @@
-import { LogOut, Search } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/store/authStore'
+import { useState } from 'react'
 
 function initials(name?: string) {
   if (!name) return 'O'
@@ -15,30 +15,38 @@ export function TopBar() {
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const navigate = useNavigate()
+  const [userOpen, setUserOpen] = useState(false)
 
   return (
     <header className="topbar">
       <label className="search-box">
-        <Search size={17} />
-        <input placeholder="Buscar caso, cliente ou peca" />
+        <Search size={16} />
+        <input placeholder="Buscar casos, execuções, clientes, documentos..." />
       </label>
 
-      <div className="topbar-user">
-        <span className="avatar" aria-hidden="true">
-          {initials(user?.name)}
-        </span>
-        <span>{user?.name}</span>
-        <Button
-          aria-label="Sair"
-          title="Sair"
-          variant="ghost"
-          onClick={() => {
-            clearAuth()
-            navigate('/login')
-          }}
-        >
-          <LogOut size={18} />
-        </Button>
+      <div className="topbar-actions">
+        <button className="bell-btn" aria-label="Notificações">
+          <Bell size={18} />
+          <span className="bell-dot" />
+        </button>
+
+        <div className="topbar-user" onClick={() => setUserOpen(!userOpen)} style={{ position: 'relative' }}>
+          <span className="avatar" aria-hidden="true">{initials(user?.name)}</span>
+          <span className="topbar-name">{user?.name?.split(' ')[0]}</span>
+          <ChevronDown size={15} style={{ color: 'var(--muted)' }} />
+
+          {userOpen && (
+            <div className="user-dropdown">
+              <button
+                onClick={() => { clearAuth(); navigate('/login') }}
+                className="user-dropdown-item danger"
+              >
+                <LogOut size={15} />
+                Sair
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )
