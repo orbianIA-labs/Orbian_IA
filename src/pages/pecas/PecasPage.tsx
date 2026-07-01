@@ -41,10 +41,24 @@ export function PecasPage() {
     enabled: !!casoId,
   })
 
-  const { data: categorias = [] } = useQuery<string[]>({
+  const CATEGORIAS_PADRAO = [
+    'Direito do Consumidor',
+    'Direito de Família',
+    'Direito Trabalhista',
+    'Direito Civil',
+    'Direito Previdenciário',
+    'Direito Criminal',
+    'Direito Empresarial',
+    'Direito Tributário',
+    'Direito Imobiliário',
+  ]
+
+  const { data: categoriasApi = [] } = useQuery<string[]>({
     queryKey: ['categorias-templates'],
     queryFn: () => api.get('/api/templates/categorias').then((r) => r.data),
   })
+
+  const categorias = categoriasApi.length > 0 ? categoriasApi : CATEGORIAS_PADRAO
 
   const { data: templates = [] } = useQuery<TemplatePeca[]>({
     queryKey: ['templates', categoria],
