@@ -8,21 +8,26 @@ import { useAuthStore } from '@/store/authStore'
 export function LoginPage() {
   const navigate = useNavigate()
   const setTokens = useAuthStore((state) => state.setTokens)
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const session = await authService.login(email, senha)
+      const session =
+        mode === 'login'
+          ? await authService.login(email, senha)
+          : await authService.register(nome, email, senha)
       setTokens(session.accessToken, session.user)
       navigate('/')
     } catch {
-      setError('Email ou senha inválidos')
+      setError(mode === 'login' ? 'Email ou senha inválidos' : 'Erro ao criar conta. Email já cadastrado?')
     } finally {
       setLoading(false)
     }
@@ -39,7 +44,19 @@ export function LoginPage() {
           Gerencie casos, monitore processos, crie peças com IA e controle prazos — tudo em um único
           fluxo de execução.
         </p>
-        <form onSubmit={handleLogin} className="form-stack">
+        <form onSubmit={handleSubmit} className="form-stack">
+          {mode === 'register' && (
+            <label>
+              Nome completo
+              <input
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Seu nome"
+                required
+              />
+            </label>
+          )}
           <label>
             Email
             <input
@@ -62,9 +79,19 @@ export function LoginPage() {
           </label>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
           <Button type="submit" disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? (mode === 'login' ? 'Entrando...' : 'Criando conta...') : (mode === 'login' ? 'Entrar' : 'Criar conta')}
           </Button>
         </form>
+        <p style={{ marginTop: 16, fontSize: 13, textAlign: 'center', color: 'var(--muted)' }}>
+          {mode === 'login' ? 'Ainda não tem conta?' : 'Já tem conta?'}{' '}
+          <button
+            type="button"
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+          >
+            {mode === 'login' ? 'Cadastre-se' : 'Faça login'}
+          </button>
+        </p>
       </section>
       <aside className="auth-side">
         <strong>Hoje</strong>

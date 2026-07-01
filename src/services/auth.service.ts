@@ -17,6 +17,12 @@ function mapUser(dto: AuthApiResponse['usuario']): User {
 }
 
 export const authService = {
+  async register(nome: string, email: string, senha: string) {
+    const { data } = await api.post<AuthApiResponse>('/api/auth/register', { nome, email, senha })
+    localStorage.setItem('refresh_token', data.refreshToken)
+    return { accessToken: data.accessToken, user: mapUser(data.usuario) }
+  },
+
   async login(email: string, senha: string) {
     const { data } = await api.post<AuthApiResponse>('/api/auth/login', { email, senha })
     localStorage.setItem('refresh_token', data.refreshToken)
