@@ -4,7 +4,7 @@ import path from 'node:path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/Lexio/',
+  base: '/Orbian_IA/',
   plugins: [react()],
   resolve: {
     alias: {
