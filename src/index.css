@@ -2479,3 +2479,195 @@ progress::-webkit-progress-value {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ============================================================================
+   PIPELINE DE CASO
+   ========================================================================== */
+
+.case-pipeline {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  gap: 0;
+}
+
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 72px;
+}
+
+.pipeline-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--line);
+  border: 2px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: var(--t);
+}
+
+.pipeline-dot-done {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.pipeline-dot-active {
+  background: var(--c-primary);
+  border-color: var(--c-primary-strong);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(77, 155, 255, 0.18);
+}
+
+.pipeline-step > span {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pipeline-step.done > span { color: var(--success); }
+.pipeline-step.active > span { color: var(--c-primary); font-weight: 600; }
+
+.pipeline-arrow {
+  width: 20px;
+  height: 2px;
+  background: var(--line);
+  flex-shrink: 0;
+  margin-bottom: 18px;
+}
+
+.pipeline-advance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: var(--t);
+}
+
+.pipeline-advance-btn:hover:not(:disabled) { background: var(--c-primary-strong); }
+.pipeline-advance-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ============================================================================
+   RADIO CARDS
+   ========================================================================== */
+
+.radio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.radio-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 10px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: var(--t);
+  text-align: center;
+  user-select: none;
+}
+
+.radio-card:hover {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+  background: var(--accent-soft);
+}
+
+.radio-card.selected {
+  border-color: var(--c-primary);
+  background: var(--accent-soft);
+  color: var(--c-primary);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   FORM — Section title e step badge
+   ========================================================================== */
+
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.form-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   DOCUMENTOS — Doc types grid
+   ========================================================================== */
+
+.doc-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.doc-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  cursor: pointer;
+  transition: var(--t);
+}
+
+.doc-type-card:hover {
+  border-color: var(--c-primary);
+  background: var(--accent-soft);
+}
+
+.doc-type-card strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.doc-type-count {
+  font-size: 11px;
+  color: var(--muted);
+}

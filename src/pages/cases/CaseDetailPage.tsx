@@ -2,17 +2,8 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive,
-  CheckCircle2,
-  Circle,
-  Copy,
-  Download,
-  Pencil,
-  Play,
-  Plus,
-  RefreshCw,
-  Sparkles,
-  Trash2,
+  Archive, CheckCircle2, Circle, ChevronRight,
+  Copy, Download, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { areaLabel, caseStatusLabel, caseStatusOptions, formatDate } from '@/lib/utils'
@@ -21,18 +12,29 @@ import { deadlinesService } from '@/services/deadlines.service'
 import { monitoringService } from '@/services/monitoring.service'
 import { etapasService } from '@/services/etapas.service'
 import api from '@/lib/axios'
+import type { EtapaPipeline } from '@/types/domain.types'
 
-type Tab = 'documentos' | 'prazos' | 'historico' | 'observacoes'
+type Tab = 'documentos' | 'pecas' | 'prazos' | 'atualizacoes' | 'historico' | 'anotacoes'
 
 interface PecaGerada {
   id: string; casoId: string; categoria: string; conteudo: string; versao: number; createdAt: string
 }
 
+const PIPELINE: { key: EtapaPipeline; label: string }[] = [
+  { key: 'cadastro',    label: 'Cadastro' },
+  { key: 'documentos',  label: 'Documentos' },
+  { key: 'pecas',       label: 'Peças' },
+  { key: 'revisao',     label: 'Revisão' },
+  { key: 'protocolo',   label: 'Protocolo' },
+  { key: 'atualizacoes',label: 'Atualizações' },
+  { key: 'encerramento',label: 'Encerramento' },
+]
+
 export function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<Tab>('historico')
+  const [tab, setTab] = useState<Tab>('documentos')
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<UpdateCasePatch>({})
   const [updateMsg, setUpdateMsg] = useState<string | null>(null)
@@ -72,6 +74,11 @@ export function CaseDetailPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
   })
 
+  const avancarEtapa = useMutation({
+    mutationFn: (etapa: EtapaPipeline) => casesService.update(id!, { etapaAtual: etapa }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['case', id] }),
+  })
+
   const atualizarProcesso = useMutation({
     mutationFn: () => monitoringService.atualizar(id!),
     onSuccess: (res) => {
@@ -105,11 +112,22 @@ export function CaseDetailPage() {
 
   const ultimaPeca = pecas[0] ?? null
   const caseDeadlines = allDeadlines.filter((d) => d.caseId === id)
-  const docs = legalCase?.recommendedDocuments ?? []
+  const etapasConcluidas = etapas.filter((e) => e.concluida).length
+  const progresso = etapas.length > 0 ? Math.round((etapasConcluidas / etapas.length) * 100) : 0
+
+  const currentPipelineIdx = PIPELINE.findIndex((s) => s.key === legalCase?.etapaAtual)
+  const nextStage = PIPELINE[currentPipelineIdx + 1] ?? null
 
   function startEdit() {
     if (!legalCase) return
-    setForm({ numeroProcesso: legalCase.caseNumber ?? '', tribunal: legalCase.tribunal ?? '', areaJuridica: legalCase.area, categoria: legalCase.category ?? '', status: legalCase.status })
+    setForm({
+      numeroProcesso: legalCase.caseNumber ?? '',
+      tribunal: legalCase.tribunal ?? '',
+      areaJuridica: legalCase.area,
+      categoria: legalCase.category ?? '',
+      status: legalCase.status,
+      tipoServico: legalCase.tipoServico ?? '',
+    })
     setEditing(true)
   }
 
@@ -127,18 +145,17 @@ export function CaseDetailPage() {
     navigator.clipboard.writeText(tmp.innerText)
   }
 
-  const etapasConcluidas = etapas.filter((e) => e.concluida).length
-  const progresso = etapas.length > 0 ? Math.round((etapasConcluidas / etapas.length) * 100) : 0
-
   if (isLoading) return <div className="screen-loader">Carregando caso...</div>
   if (!legalCase) return <div className="page-stack"><p>Caso não encontrado.</p></div>
 
   return (
     <div className="case-detail-layout">
       <div className="case-detail-main">
+
+        {/* ── Header ── */}
         <div className="case-detail-header">
           <div>
-            <p className="eyebrow">{areaLabel(legalCase.area)}</p>
+            <p className="eyebrow">{areaLabel(legalCase.area)}{legalCase.tipoServico ? ` · ${legalCase.tipoServico}` : ''}</p>
             <h1>{legalCase.clientName}</h1>
             {legalCase.caseNumber && <p style={{ color: 'var(--muted)', fontSize: 13 }}>{legalCase.caseNumber}</p>}
           </div>
@@ -156,13 +173,45 @@ export function CaseDetailPage() {
           </div>
         </div>
 
+        {/* ── Pipeline ── */}
+        <div className="case-pipeline">
+          {PIPELINE.map((stage, idx) => {
+            const done = idx < currentPipelineIdx
+            const current = idx === currentPipelineIdx
+            return (
+              <div key={stage.key} className={`pipeline-step ${done ? 'done' : current ? 'current' : 'pending'}`}>
+                <div className="pipeline-dot">
+                  {done ? <CheckCircle2 size={15} /> : current ? <span className="pipeline-dot-active" /> : <Circle size={15} />}
+                </div>
+                <span>{stage.label}</span>
+                {idx < PIPELINE.length - 1 && <ChevronRight size={13} className="pipeline-arrow" />}
+              </div>
+            )
+          })}
+          {nextStage && (
+            <button
+              className="pipeline-advance-btn"
+              onClick={() => avancarEtapa.mutate(nextStage.key)}
+              disabled={avancarEtapa.isPending}
+            >
+              Avançar para {nextStage.label}
+            </button>
+          )}
+        </div>
+
+        {/* ── Edit form ── */}
         {editing && (
           <div className="panel" style={{ marginBottom: 16 }}>
             <h2 style={{ marginBottom: 16 }}>Editar caso</h2>
             <div className="form-stack">
               <label>Número CNJ<input type="text" value={form.numeroProcesso ?? ''} onChange={(e) => setForm({ ...form, numeroProcesso: e.target.value })} placeholder="0000000-00.0000.0.00.0000" /></label>
               <label>Tribunal<input type="text" value={form.tribunal ?? ''} onChange={(e) => setForm({ ...form, tribunal: e.target.value })} /></label>
-              <label>Categoria<input type="text" value={form.categoria ?? ''} onChange={(e) => setForm({ ...form, categoria: e.target.value })} /></label>
+              <label>Tipo de Serviço
+                <select value={form.tipoServico ?? ''} onChange={(e) => setForm({ ...form, tipoServico: e.target.value })}>
+                  <option value="">Selecione...</option>
+                  {['Processo Judicial','Consultoria','Contrato','Parecer','Administrativo'].map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
               <label>Status
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateCasePatch['status'] })}>
                   {caseStatusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -176,44 +225,83 @@ export function CaseDetailPage() {
           </div>
         )}
 
+        {/* ── Tabs ── */}
         <div className="case-tabs">
-          {(['historico', 'prazos', 'documentos', 'observacoes'] as Tab[]).map((t) => (
+          {([
+            ['documentos', 'Documentos'],
+            ['pecas', 'Peças'],
+            ['prazos', 'Prazos'],
+            ['atualizacoes', 'Atualizações'],
+            ['historico', 'Histórico'],
+            ['anotacoes', 'Anotações'],
+          ] as [Tab, string][]).map(([t, label]) => (
             <button key={t} className={`case-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-              {t === 'historico' ? 'Histórico' : t === 'prazos' ? 'Prazos' : t === 'documentos' ? 'Documentos' : 'Observações'}
+              {label}
             </button>
           ))}
         </div>
 
         <div className="case-tab-content">
-          {tab === 'historico' && (
+
+          {/* Documentos */}
+          {tab === 'documentos' && (
             <div className="panel">
               <div className="panel-title">
-                <h2>Histórico de movimentações</h2>
-                <Button variant="secondary" onClick={() => atualizarProcesso.mutate()} disabled={atualizarProcesso.isPending}>
-                  <RefreshCw size={15} className={atualizarProcesso.isPending ? 'spin' : ''} />
-                  {atualizarProcesso.isPending ? 'Consultando...' : 'Atualizar'}
+                <h2>Documentos</h2>
+                <Button variant="secondary" style={{ fontSize: 13 }}>
+                  <Plus size={14} /> Adicionar documento
                 </Button>
               </div>
-              {updateMsg && <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{updateMsg}</p>}
-              {movimentacoes.length === 0 ? (
-                <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhuma movimentação. Clique em "Atualizar" para consultar.</p>
+              <div className="doc-types-grid">
+                {['Petição Inicial','Procuração','Contrato','Documentos pessoais','Comprovantes','Conversas','Outros anexos'].map((tipo) => (
+                  <div key={tipo} className="doc-type-card">
+                    <span>{tipo}</span>
+                    <span className="doc-type-count">0</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 16 }}>Upload de documentos disponível em breve.</p>
+            </div>
+          )}
+
+          {/* Peças */}
+          {tab === 'pecas' && (
+            <div className="panel">
+              <div className="panel-title">
+                <h2>Peças jurídicas</h2>
+                <div className="button-row" style={{ margin: 0 }}>
+                  {ultimaPeca && <>
+                    <Button variant="secondary" onClick={exportarWord}><Download size={15} /> Word</Button>
+                    <Button variant="secondary" onClick={copiarPeca}><Copy size={15} /> Copiar</Button>
+                  </>}
+                  <Button onClick={() => navigate(`/cases/${id}/pecas`)}><Sparkles size={14} /> Gerar peça</Button>
+                </div>
+              </div>
+              {pecas.length === 0 ? (
+                <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhuma peça gerada ainda.</p>
               ) : (
-                <ol className="timeline">
-                  {movimentacoes.map((mov) => (
-                    <li className="timeline-item" key={mov.id}>
-                      <time>{formatDate(mov.date)}</time>
-                      <p>{mov.description}</p>
-                    </li>
+                <div className="list">
+                  {pecas.map((p) => (
+                    <div key={p.id} className="list-row">
+                      <div>
+                        <strong>{p.categoria}</strong>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>v{p.versao} · {formatDate(p.createdAt)}</span>
+                      </div>
+                      <Button variant="secondary" onClick={() => navigate(`/cases/${id}/pecas`)}>
+                        <Pencil size={13} /> Editar
+                      </Button>
+                    </div>
                   ))}
-                </ol>
+                </div>
               )}
             </div>
           )}
 
+          {/* Prazos */}
           {tab === 'prazos' && (
             <div className="panel">
               <div className="panel-title">
-                <h2>Prazos do caso</h2>
+                <h2>Prazos</h2>
               </div>
               {caseDeadlines.length === 0 ? (
                 <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhum prazo cadastrado.</p>
@@ -238,65 +326,60 @@ export function CaseDetailPage() {
             </div>
           )}
 
-          {tab === 'documentos' && (
+          {/* Atualizações */}
+          {tab === 'atualizacoes' && (
             <div className="panel">
               <div className="panel-title">
-                <h2>Documentos</h2>
-                {ultimaPeca && (
-                  <div className="button-row" style={{ margin: 0 }}>
-                    <Button variant="secondary" onClick={exportarWord}><Download size={15} /> Word</Button>
-                    <Button variant="secondary" onClick={copiarPeca}><Copy size={15} /> Copiar peça</Button>
-                  </div>
-                )}
+                <h2>Atualizações processuais</h2>
+                <Button variant="secondary" onClick={() => atualizarProcesso.mutate()} disabled={atualizarProcesso.isPending}>
+                  <RefreshCw size={15} className={atualizarProcesso.isPending ? 'spin' : ''} />
+                  {atualizarProcesso.isPending ? 'Consultando...' : 'Atualizar'}
+                </Button>
               </div>
-              {docs.length === 0 && !ultimaPeca ? (
-                <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhum documento ainda.</p>
+              {updateMsg && <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{updateMsg}</p>}
+              {movimentacoes.length === 0 ? (
+                <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhuma movimentação. Clique em "Atualizar" para consultar.</p>
               ) : (
-                <>
-                  {docs.length > 0 && (
-                    <div className="list" style={{ marginBottom: ultimaPeca ? 16 : 0 }}>
-                      {docs.map((doc, i) => (
-                        <div key={i} className="list-row">
-                          <div>
-                            <strong>{doc.name}</strong>
-                          </div>
-                          <span className={`badge ${doc.received ? 'badge-success' : 'badge-normal'}`}>
-                            {doc.received ? 'Recebido' : 'Pendente'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {ultimaPeca && (
-                    <div style={{ background: 'var(--surface-soft)', borderRadius: 'var(--radius-sm)', padding: '14px 16px' }}>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>PEÇA GERADA</p>
-                      <strong>{ultimaPeca.categoria} — v{ultimaPeca.versao}</strong>
-                      <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 10px' }}>
-                        {formatDate(ultimaPeca.createdAt)}
-                      </p>
-                      <Button variant="secondary" onClick={() => navigate(`/cases/${id}/pecas`)}>
-                        <Pencil size={14} /> Editar peça
-                      </Button>
-                    </div>
-                  )}
-                </>
+                <ol className="timeline">
+                  {movimentacoes.map((mov) => (
+                    <li className="timeline-item" key={mov.id}>
+                      <time>{formatDate(mov.date)}</time>
+                      <p>{mov.description}</p>
+                    </li>
+                  ))}
+                </ol>
               )}
             </div>
           )}
 
-          {tab === 'observacoes' && (
+          {/* Histórico */}
+          {tab === 'historico' && (
             <div className="panel">
-              <h2>Observações</h2>
+              <h2>Histórico do caso</h2>
+              <ol className="timeline">
+                <li className="timeline-item">
+                  <time>{formatDate(legalCase.updatedAt)}</time>
+                  <p>Caso atualizado</p>
+                </li>
+              </ol>
+            </div>
+          )}
+
+          {/* Anotações */}
+          {tab === 'anotacoes' && (
+            <div className="panel">
+              <h2>Anotações</h2>
               <textarea
                 className="obs-textarea"
-                placeholder="Adicione observações sobre o caso..."
-                rows={8}
+                placeholder="Adicione anotações sobre o caso..."
+                rows={10}
               />
             </div>
           )}
         </div>
       </div>
 
+      {/* ── Aside ── */}
       <div className="case-detail-aside">
         <div className="panel">
           <p className="section-label" style={{ marginBottom: 14 }}>CASO</p>
@@ -306,20 +389,11 @@ export function CaseDetailPage() {
               <dd><span className="badge badge-normal">{caseStatusLabel(legalCase.status)}</span></dd>
             </div>
             <div><dt>Cliente</dt><dd>{legalCase.clientName}</dd></div>
-            {legalCase.clientPhone && <div><dt>Telefone</dt><dd>{legalCase.clientPhone}</dd></div>}
+            {legalCase.tipoServico && <div><dt>Tipo</dt><dd>{legalCase.tipoServico}</dd></div>}
             {legalCase.tribunal && <div><dt>Tribunal</dt><dd>{legalCase.tribunal}</dd></div>}
             <div><dt>Área</dt><dd>{areaLabel(legalCase.area)}</dd></div>
             <div><dt>Atualizado</dt><dd>{formatDate(legalCase.updatedAt)}</dd></div>
           </dl>
-
-          {caseDeadlines.filter((d) => !d.completed).length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>PRÓXIMA EXECUÇÃO</p>
-              <strong style={{ fontSize: 14 }}>
-                {caseDeadlines.filter((d) => !d.completed).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]?.title}
-              </strong>
-            </div>
-          )}
         </div>
 
         <div className="panel">
@@ -349,11 +423,7 @@ export function CaseDetailPage() {
                   }
                   <span style={{ fontSize: 14 }}>{et.titulo}</span>
                 </button>
-                <button
-                  className="etapa-delete-btn"
-                  onClick={() => removerEtapa.mutate(et.id)}
-                  aria-label="Remover etapa"
-                >
+                <button className="etapa-delete-btn" onClick={() => removerEtapa.mutate(et.id)} aria-label="Remover etapa">
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -373,13 +443,7 @@ export function CaseDetailPage() {
                   if (e.key === 'Escape') setAddingEtapa(false)
                 }}
               />
-              <Button
-                onClick={() => criarEtapa.mutate()}
-                disabled={!novaEtapa.trim() || criarEtapa.isPending}
-                style={{ padding: '0 12px', flexShrink: 0 }}
-              >
-                OK
-              </Button>
+              <Button onClick={() => criarEtapa.mutate()} disabled={!novaEtapa.trim() || criarEtapa.isPending} style={{ padding: '0 12px', flexShrink: 0 }}>OK</Button>
             </div>
           ) : (
             <button className="add-etapa-btn" onClick={() => setAddingEtapa(true)}>
@@ -388,10 +452,7 @@ export function CaseDetailPage() {
           )}
 
           {etapas.length > 0 && (
-            <Button
-              onClick={() => navigate('/trabalho')}
-              style={{ width: '100%', marginTop: 16, background: 'var(--grad-primary)' }}
-            >
+            <Button onClick={() => navigate('/trabalho')} style={{ width: '100%', marginTop: 16, background: 'var(--grad-primary)' }}>
               <Play size={14} fill="currentColor" /> Continuar
             </Button>
           )}

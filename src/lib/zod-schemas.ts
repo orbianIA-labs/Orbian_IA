@@ -15,8 +15,9 @@ export const createCaseSchema = z.object({
     .optional()
     .or(z.literal('')),
   tribunal: z.string().optional(),
-  area: z.enum(['civil', 'trabalhista', 'tributario', 'penal', 'familia', 'consumidor']),
+  area: z.enum(['civil', 'trabalhista', 'tributario', 'penal', 'familia', 'consumidor', 'empresarial', 'criminal']),
   flow: z.string().optional(),
+  tipoServico: z.string().optional(),
 })
 
 export type CreateCaseInput = z.infer<typeof createCaseSchema>

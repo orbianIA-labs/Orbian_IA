@@ -11,6 +11,8 @@ type CasoResponse = {
   areaJuridica: string | null
   categoria: string | null
   status: string
+  tipoServico: string | null
+  etapaAtual: string
   createdAt: string
   updatedAt: string
 }
@@ -29,6 +31,8 @@ function mapCaso(c: CasoResponse): LegalCase {
     category: c.categoria ?? '',
     flow: c.categoria ?? '',
     status: (c.status ?? 'em_andamento') as CaseStatus,
+    tipoServico: c.tipoServico ?? undefined,
+    etapaAtual: (c.etapaAtual ?? 'cadastro') as LegalCase['etapaAtual'],
     progress: 0,
     nextAction: 'Ver detalhes',
     claimValue: 0,
@@ -52,6 +56,8 @@ export type UpdateCasePatch = {
   areaJuridica?: string | null
   categoria?: string | null
   status?: CaseStatus
+  tipoServico?: string | null
+  etapaAtual?: string
 }
 
 export const casesService = {
@@ -79,6 +85,7 @@ export const casesService = {
       tribunal: input.tribunal || null,
       areaJuridica: input.area,
       categoria: input.flow || null,
+      tipoServico: input.tipoServico || null,
     })
 
     return mapCaso(caso)

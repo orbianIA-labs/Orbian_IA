@@ -21,6 +21,22 @@ export type CaseStatus =
   | 'finalizado'
   | 'arquivado'
 
+export type TipoServico =
+  | 'Processo Judicial'
+  | 'Consultoria'
+  | 'Contrato'
+  | 'Parecer'
+  | 'Administrativo'
+
+export type EtapaPipeline =
+  | 'cadastro'
+  | 'documentos'
+  | 'pecas'
+  | 'revisao'
+  | 'protocolo'
+  | 'atualizacoes'
+  | 'encerramento'
+
 export type LegalCase = {
   id: string
   title: string
@@ -34,6 +50,8 @@ export type LegalCase = {
   category: string
   flow: string
   status: CaseStatus
+  tipoServico?: string
+  etapaAtual: EtapaPipeline
   progress: number
   nextAction: string
   nextDeadline?: string

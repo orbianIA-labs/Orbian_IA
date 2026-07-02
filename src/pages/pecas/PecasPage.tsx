@@ -41,16 +41,17 @@ export function PecasPage() {
     enabled: !!casoId,
   })
 
-  const CATEGORIAS_PADRAO = [
-    'Direito do Consumidor',
-    'Direito de Família',
-    'Direito Trabalhista',
-    'Direito Civil',
-    'Direito Previdenciário',
-    'Direito Criminal',
-    'Direito Empresarial',
-    'Direito Tributário',
-    'Direito Imobiliário',
+  const TIPOS_PECA = [
+    'Contestação',
+    'Petição Inicial',
+    'Réplica',
+    'Manifestação',
+    'Embargos de Declaração',
+    'Agravo de Instrumento',
+    'Apelação',
+    'Recurso Ordinário',
+    'Mandado de Segurança',
+    'Outros',
   ]
 
   const { data: categoriasApi = [] } = useQuery<string[]>({
@@ -58,7 +59,7 @@ export function PecasPage() {
     queryFn: () => api.get('/api/templates/categorias').then((r) => r.data),
   })
 
-  const categorias = categoriasApi.length > 0 ? categoriasApi : CATEGORIAS_PADRAO
+  const categorias = TIPOS_PECA
 
   const { data: templates = [] } = useQuery<TemplatePeca[]>({
     queryKey: ['templates', categoria],
@@ -168,7 +169,7 @@ export function PecasPage() {
 
           <div className="form-stack">
             <label>
-              <span>1. Categoria</span>
+              <span>1. Tipo de peça</span>
               <select
                 value={categoria}
                 onChange={(e) => {
