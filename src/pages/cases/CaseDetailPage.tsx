@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive, CheckCircle2, Circle, ChevronRight,
+  Archive, CheckCircle2, Circle,
   Copy, Download, Pencil, Play, Plus, RefreshCw, Sparkles, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -40,6 +40,12 @@ export function CaseDetailPage() {
   const [updateMsg, setUpdateMsg] = useState<string | null>(null)
   const [novaEtapa, setNovaEtapa] = useState('')
   const [addingEtapa, setAddingEtapa] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadTipoRef = useRef('')
+  const [docsLocais, setDocsLocais] = useState<Record<string, File[]>>({})
+  const [mostrarSeletorTipo, setMostrarSeletorTipo] = useState(false)
+
+  const DOC_TIPOS = ['Petição Inicial', 'Procuração', 'Contrato', 'Documentos pessoais', 'Comprovantes', 'Conversas', 'Outros anexos']
 
   const { data: legalCase, isLoading } = useQuery({
     queryKey: ['case', id],
@@ -139,6 +145,20 @@ export function CaseDetailPage() {
     a.click(); URL.revokeObjectURL(a.href)
   }
 
+  function abrirUpload(tipo: string) {
+    uploadTipoRef.current = tipo
+    setMostrarSeletorTipo(false)
+    fileInputRef.current?.click()
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    const tipo = uploadTipoRef.current
+    if (!files.length || !tipo) return
+    setDocsLocais(prev => ({ ...prev, [tipo]: [...(prev[tipo] ?? []), ...files] }))
+    e.target.value = ''
+  }
+
   function copiarPeca() {
     if (!ultimaPeca) return
     const tmp = document.createElement('div'); tmp.innerHTML = ultimaPeca.conteudo
@@ -174,28 +194,36 @@ export function CaseDetailPage() {
         </div>
 
         {/* ── Pipeline ── */}
-        <div className="case-pipeline">
-          {PIPELINE.map((stage, idx) => {
-            const done = idx < currentPipelineIdx
-            const current = idx === currentPipelineIdx
-            return (
-              <div key={stage.key} className={`pipeline-step ${done ? 'done' : current ? 'current' : 'pending'}`}>
-                <div className="pipeline-dot">
-                  {done ? <CheckCircle2 size={15} /> : current ? <span className="pipeline-dot-active" /> : <Circle size={15} />}
+        <div>
+          <div className="case-pipeline">
+            {PIPELINE.map((stage, idx) => {
+              const done = idx < currentPipelineIdx
+              const active = idx === currentPipelineIdx
+              const dotCls = ['pipeline-dot', done && 'pipeline-dot-done', active && 'pipeline-dot-active'].filter(Boolean).join(' ')
+              const stepCls = ['pipeline-step', done && 'done', active && 'active'].filter(Boolean).join(' ')
+              return (
+                <div key={stage.key} style={{ display: 'contents' }}>
+                  <div className={stepCls}>
+                    <div className={dotCls}>
+                      {done ? <CheckCircle2 size={13} /> : idx + 1}
+                    </div>
+                    <span>{stage.label}</span>
+                  </div>
+                  {idx < PIPELINE.length - 1 && <div className="pipeline-arrow" />}
                 </div>
-                <span>{stage.label}</span>
-                {idx < PIPELINE.length - 1 && <ChevronRight size={13} className="pipeline-arrow" />}
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
           {nextStage && (
-            <button
-              className="pipeline-advance-btn"
-              onClick={() => avancarEtapa.mutate(nextStage.key)}
-              disabled={avancarEtapa.isPending}
-            >
-              Avançar para {nextStage.label}
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <button
+                className="pipeline-advance-btn"
+                onClick={() => avancarEtapa.mutate(nextStage.key)}
+                disabled={avancarEtapa.isPending}
+              >
+                Avançar para {nextStage.label}
+              </button>
+            </div>
           )}
         </div>
 
@@ -246,21 +274,43 @@ export function CaseDetailPage() {
           {/* Documentos */}
           {tab === 'documentos' && (
             <div className="panel">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                style={{ display: 'none' }}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                onChange={onFileChange}
+              />
               <div className="panel-title">
                 <h2>Documentos</h2>
-                <Button variant="secondary" style={{ fontSize: 13 }}>
+                <Button variant="secondary" style={{ fontSize: 13 }} onClick={() => setMostrarSeletorTipo(v => !v)}>
                   <Plus size={14} /> Adicionar documento
                 </Button>
               </div>
-              <div className="doc-types-grid">
-                {['Petição Inicial','Procuração','Contrato','Documentos pessoais','Comprovantes','Conversas','Outros anexos'].map((tipo) => (
-                  <div key={tipo} className="doc-type-card">
-                    <span>{tipo}</span>
-                    <span className="doc-type-count">0</span>
+              {mostrarSeletorTipo && (
+                <div className="doc-tipo-picker">
+                  <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Selecione o tipo do documento:</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {DOC_TIPOS.map((t) => (
+                      <button key={t} className="doc-tipo-btn" onClick={() => abrirUpload(t)}>{t}</button>
+                    ))}
                   </div>
-                ))}
+                </div>
+              )}
+              <div className="doc-types-grid">
+                {DOC_TIPOS.map((tipo) => {
+                  const count = (docsLocais[tipo] ?? []).length
+                  return (
+                    <div key={tipo} className="doc-type-card" onClick={() => abrirUpload(tipo)}>
+                      <strong>{tipo}</strong>
+                      <span className="doc-type-count">
+                        {count > 0 ? `${count} arquivo${count > 1 ? 's' : ''}` : '0'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-              <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 16 }}>Upload de documentos disponível em breve.</p>
             </div>
           )}
 
