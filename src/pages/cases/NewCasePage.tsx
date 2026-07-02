@@ -34,7 +34,6 @@ export function NewCasePage() {
     handleSubmit,
     register,
     watch,
-    setValue,
   } = useForm<CreateCaseInput>({
     resolver: zodResolver(createCaseSchema),
     defaultValues: { area: 'civil' },

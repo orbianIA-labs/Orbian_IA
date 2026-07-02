@@ -54,11 +54,6 @@ export function PecasPage() {
     'Outros',
   ]
 
-  const { data: categoriasApi = [] } = useQuery<string[]>({
-    queryKey: ['categorias-templates'],
-    queryFn: () => api.get('/api/templates/categorias').then((r) => r.data),
-  })
-
   const categorias = TIPOS_PECA
 
   const { data: templates = [] } = useQuery<TemplatePeca[]>({
