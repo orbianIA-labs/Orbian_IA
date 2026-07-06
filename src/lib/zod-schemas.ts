@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+// Campo monetário opcional. O input converte vazio → undefined via setValueAs (ver NewCasePage).
+const optionalMoney = z.number().min(0, 'Não pode ser negativo').optional()
+
 export const createCaseSchema = z.object({
   clientName: z.string().min(2, 'Informe o nome do cliente'),
   clientPhone: z.string().optional(),
@@ -18,6 +21,9 @@ export const createCaseSchema = z.object({
   area: z.enum(['civil', 'trabalhista', 'tributario', 'penal', 'familia', 'consumidor', 'empresarial', 'criminal']),
   flow: z.string().optional(),
   tipoServico: z.string().optional(),
+  valorCausa: optionalMoney,
+  honorarios: optionalMoney,
+  valorRecebido: optionalMoney,
 })
 
 export type CreateCaseInput = z.infer<typeof createCaseSchema>

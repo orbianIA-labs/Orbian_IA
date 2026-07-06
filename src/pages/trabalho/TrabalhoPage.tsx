@@ -1,4 +1,5 @@
-import { ArrowRight, CheckCircle2, Circle, Play, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, CheckCircle2, Circle, FileText, Play, Sparkles, Zap } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
@@ -26,6 +27,7 @@ export function TrabalhoPage() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const [instrucoes, setInstrucoes] = useState('')
 
   const { data: cases = [] } = useQuery({ queryKey: ['cases'], queryFn: () => casesService.list() })
   const { data: deadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })
@@ -66,6 +68,7 @@ export function TrabalhoPage() {
   }
 
   const proximasOutrasCases = sorted.slice(1, 5)
+  const docRecomendados = caso.recommendedDocuments ?? []
 
   return (
     <div className="page-stack">
@@ -78,6 +81,8 @@ export function TrabalhoPage() {
 
       <div className="trabalho-grid">
         <div className="trabalho-main">
+
+          {/* ── Card de execução atual ── */}
           <div className="exec-card-full">
             <div className="exec-card-header">
               <div className="exec-icon">
@@ -89,7 +94,7 @@ export function TrabalhoPage() {
                 <p className="exec-case">{caso.clientName}{caso.caseNumber ? ` · ${caso.caseNumber}` : ''}</p>
               </div>
               <Button onClick={() => navigate(`/cases/${caso.id}`)} style={{ marginLeft: 'auto' }}>
-                Continuar
+                Continuar no caso
               </Button>
             </div>
 
@@ -105,9 +110,53 @@ export function TrabalhoPage() {
               )}
             </div>
 
+            {/* ── Documentos necessários ── */}
+            {docRecomendados.length > 0 && (
+              <div className="exec-docs-section">
+                <p className="section-label" style={{ marginBottom: 10 }}>DOCUMENTOS</p>
+                <div className="exec-docs-list">
+                  {docRecomendados.map((doc, i) => (
+                    <div key={i} className={`exec-doc-row ${doc.received ? 'received' : ''}`}>
+                      <span className="exec-doc-check">
+                        {doc.received
+                          ? <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />
+                          : <Circle size={16} style={{ color: 'var(--muted)' }} />}
+                      </span>
+                      <span className="exec-doc-name">
+                        <FileText size={13} />
+                        {doc.name}
+                      </span>
+                      <button className="exec-doc-visualizar">Visualizar</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Instruções adicionais ── */}
+            <div className="exec-instrucoes-section">
+              <p className="section-label" style={{ marginBottom: 8 }}>INSTRUÇÕES ADICIONAIS</p>
+              <textarea
+                className="obs-textarea"
+                placeholder="Ex.: mencionar garantia vencida, incluir pedido de danos morais..."
+                rows={3}
+                value={instrucoes}
+                onChange={(e) => setInstrucoes(e.target.value)}
+              />
+            </div>
+
+            {/* ── Gerar peça com IA ── */}
+            <Button
+              style={{ width: '100%', background: 'var(--grad-primary)', justifyContent: 'center', gap: 8 }}
+              onClick={() => navigate(`/cases/${caso.id}/pecas`)}
+            >
+              <Sparkles size={16} /> Gerar peça com IA
+            </Button>
+
+            {/* ── Checklist de etapas ── */}
             {etapas.length > 0 && (
-              <div className="etapas-checklist">
-                <p className="etapas-label">ETAPAS</p>
+              <div className="etapas-checklist" style={{ marginTop: 20 }}>
+                <p className="section-label" style={{ marginBottom: 8 }}>ETAPAS DA EXECUÇÃO</p>
                 {etapas.map((et) => (
                   <button
                     key={et.id}
@@ -125,6 +174,7 @@ export function TrabalhoPage() {
             )}
           </div>
 
+          {/* ── Próximas execuções ── */}
           {proximasOutrasCases.length > 0 && (
             <div className="panel">
               <div className="panel-title">
@@ -155,6 +205,7 @@ export function TrabalhoPage() {
           )}
         </div>
 
+        {/* ── Aside ── */}
         <div className="trabalho-aside">
           <div className="panel">
             <p className="section-label">CASO</p>

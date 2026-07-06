@@ -1,34 +1,34 @@
-import { CalendarDays, ChevronDown, FolderKanban, Home, Settings, Zap } from 'lucide-react'
-import { Link, NavLink } from 'react-router-dom'
+import {
+  BookOpen,
+  CalendarDays,
+  FolderKanban,
+  Home,
+  Plus,
+  Settings,
+  Zap,
+} from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { OrbianLogo } from '@/components/brand/OrbianLogo'
-import { useAuthStore } from '@/store/authStore'
-
-function initials(name?: string) {
-  if (!name) return 'O'
-  const parts = name.trim().split(/\s+/)
-  const first = parts[0]?.[0] ?? ''
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
-  return (first + last).toUpperCase()
-}
 
 const navItems = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/trabalho', label: 'Trabalho', icon: Zap },
   { to: '/cases', label: 'Casos', icon: FolderKanban },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+  { to: '/biblioteca', label: 'Biblioteca', icon: BookOpen },
   { to: '/profile', label: 'Configurações', icon: Settings },
 ]
 
 export function Sidebar() {
-  const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
 
   return (
-    <aside className="sidebar" aria-label="Navegacao principal">
+    <aside className="sidebar" aria-label="Navegação principal">
       <div className="brand">
-        <OrbianLogo size={36} />
+        <OrbianLogo size={38} />
         <div>
-          <strong>orbian</strong>
-          <small>Execução jurídica</small>
+          <strong>Orbian.AI</strong>
+          <small>LEGAL EXECUTION OS</small>
         </div>
       </div>
 
@@ -51,16 +51,10 @@ export function Sidebar() {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-bottom">
-        <Link to="/profile" className="sidebar-user-row">
-          <span className="sidebar-avatar">{initials(user?.name)}</span>
-          <div className="sidebar-user-info">
-            <strong>{user?.name?.split(' ')[0]}</strong>
-            <span>Ver perfil</span>
-          </div>
-          <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} />
-        </Link>
-      </div>
+      <button className="new-exec-btn" onClick={() => navigate('/cases/new')}>
+        <Plus size={18} />
+        Nova Execução
+      </button>
     </aside>
   )
 }

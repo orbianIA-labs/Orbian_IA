@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { demoUser } from '@/services/mockData'
+import { useAuthStore } from '@/store/authStore'
 
 const plans = [
   {
@@ -55,7 +55,7 @@ const plans = [
 ]
 
 export function AdminPage() {
-  const currentPlan = demoUser.plan
+  const currentPlan = useAuthStore((s) => s.user?.plan ?? 'free')
 
   return (
     <div className="page-stack narrow" style={{ maxWidth: 960, margin: '0 auto' }}>

@@ -1,23 +1,56 @@
 import {
-  AlertCircle,
   ArrowRight,
-  CalendarCheck,
+  CheckCircle2,
+  Circle,
   Clock,
   FileText,
+  Flame,
+  Folder,
+  Gauge,
+  MoreVertical,
   Play,
   Scale,
   Sparkles,
-  User,
-  Users,
+  Target,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
 import { etapasService } from '@/services/etapas.service'
 import { useAuthStore } from '@/store/authStore'
-import type { Deadline } from '@/types/domain.types'
+import type { CaseStatus, Deadline, EtapaPipeline } from '@/types/domain.types'
+
+const ETAPA_LABEL: Record<EtapaPipeline, string> = {
+  cadastro: 'Cadastro',
+  documentos: 'Documentos',
+  pecas: 'Peças',
+  revisao: 'Revisão',
+  protocolo: 'Protocolo',
+  atualizacoes: 'Atualizações',
+  encerramento: 'Encerramento',
+}
+
+const STATUS_TAG: Record<CaseStatus, { label: string; cls: string }> = {
+  em_andamento: { label: 'Ativo', cls: 'tag-active' },
+  aguardando_documentos: { label: 'Aguardando', cls: 'tag-wait' },
+  aguardando_prazo: { label: 'Aguardando', cls: 'tag-wait' },
+  finalizado: { label: 'Concluído', cls: 'tag-done' },
+  arquivado: { label: 'Arquivado', cls: 'tag-muted' },
+}
+
+const PRIORITY_TAG: Record<Deadline['priority'], { label: string; cls: string }> = {
+  critical: { label: 'ALTA', cls: 'prio-alta' },
+  attention: { label: 'MÉDIA', cls: 'prio-media' },
+  normal: { label: 'BAIXA', cls: 'prio-baixa' },
+}
+
+const ROW_ICONS = [
+  { Icon: FileText, bg: '#e8f0ff', color: '#2565ea' },
+  { Icon: Scale, bg: '#ede8ff', color: '#7c5cfc' },
+  { Icon: FileText, bg: '#e8f9f0', color: '#2ba36a' },
+  { Icon: Scale, bg: '#fff3e8', color: '#e2622c' },
+]
 
 function score(d: Deadline): number {
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -32,7 +65,8 @@ function score(d: Deadline): number {
   return s
 }
 
-function prazoLabel(dateStr: string) {
+/** Rótulo curto do dia: Hoje / Amanhã / 12 out */
+function dayLabel(dateStr: string) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
   const diff = Math.floor((d.getTime() - today.getTime()) / 86400000)
@@ -42,12 +76,34 @@ function prazoLabel(dateStr: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
-const ROW_ICONS = [
-  { Icon: FileText, bg: '#e8f0ff', color: '#4d9bff' },
-  { Icon: User, bg: '#ede8ff', color: '#7c5cfc' },
-  { Icon: Scale, bg: '#e8f9f0', color: '#4dba7c' },
-  { Icon: FileText, bg: '#fff3e8', color: '#e07b2f' },
-]
+/** "Hoje, 17:00" quando há horário; senão só o dia */
+function listDeadline(dateStr: string) {
+  const d = new Date(dateStr)
+  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
+  const day = dayLabel(dateStr)
+  if (!hasTime || day === 'Atrasado') return day
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `${day}, ${time}`
+}
+
+/** Destaque da missão: "2h41 restante" no mesmo dia, senão o rótulo do dia */
+function missionDeadline(dateStr: string) {
+  const now = new Date()
+  const due = new Date(dateStr)
+  const sameDay = now.toDateString() === due.toDateString()
+  if (sameDay) {
+    const ms = due.getTime() - now.getTime()
+    if (ms > 0) {
+      const totalMin = Math.floor(ms / 60000)
+      const h = Math.floor(totalMin / 60)
+      const m = totalMin % 60
+      if (h > 0) return `${h}h${m > 0 ? String(m).padStart(2, '0') : ''} restante`
+      return `${m} min restante`
+    }
+    return 'Hoje'
+  }
+  return dayLabel(dateStr)
+}
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
@@ -60,6 +116,10 @@ export function DashboardPage() {
   const { data: deadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })
 
   const pending = deadlines.filter((d) => !d.completed)
+  const concluidas = deadlines.filter((d) => d.completed).length
+  const total = deadlines.length
+  const pct = total > 0 ? Math.round((concluidas / total) * 100) : 0
+
   const sorted = [...pending].sort((a, b) => score(b) - score(a))
   const execucao = sorted[0]
   const caso = execucao ? cases.find((c) => c.id === execucao.caseId) : null
@@ -72,214 +132,218 @@ export function DashboardPage() {
 
   const proximas = sorted.slice(1, 4)
 
-  const criticos = pending.filter((d) => d.priority === 'critical').length
-  const aguardando = cases.filter(
-    (c) => c.status === 'aguardando_documentos' || c.status === 'aguardando_prazo',
-  ).length
-  const tempoMin = pending.length * 20
-  const tempoStr =
-    tempoMin >= 60
-      ? `${Math.floor(tempoMin / 60)}h${tempoMin % 60 > 0 ? String(tempoMin % 60).padStart(2, '0') : ''}`
-      : `${tempoMin}min`
+  // Progresso da missão a partir das etapas
+  const etapasDone = etapas.filter((e) => e.concluida).length
+  const activeIdx = etapas.findIndex((e) => !e.concluida)
+  const progressoStr = etapas.length > 0 ? `${etapasDone} de ${etapas.length}` : `${caso?.progress ?? 0}%`
+  const restantes = etapas.length > 0 ? etapas.length - etapasDone : 0
+  const tempoEst = etapas.length > 0 ? `${8 + restantes * 6} min` : '—'
 
-  const proximosPrazos = [...pending]
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-    .slice(0, 3)
+  // Estatísticas do painel de IA
+  const docsRecebidos = caso?.recommendedDocuments.filter((d) => d.received).length ?? 0
+  const docsPendentes = caso?.recommendedDocuments.filter((d) => !d.received).length ?? 0
 
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-main">
-        <div className="dashboard-hero">
-          <h1>{saudacao}, {user?.name?.split(' ')[0]}.</h1>
-          {execucao
-            ? <p>Sua próxima execução está pronta.</p>
-            : <p>Todos os prazos estão em dia. Bom trabalho!</p>
-          }
+    <div className="home">
+      {/* ── Cabeçalho: saudação + progresso ── */}
+      <header className="home-header">
+        <div>
+          <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}</h1>
+          <p>
+            Hoje você possui <strong>{total} execuç{total === 1 ? 'ão' : 'ões'}</strong>.{' '}
+            {concluidas} já {concluidas === 1 ? 'foi concluída' : 'foram concluídas'}.
+          </p>
         </div>
+        <div className="home-progress">
+          <div className="home-progress-labels">
+            <span>{pct}% CONCLUÍDO</span>
+            <span className="muted">META: 100%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </header>
 
-        {execucao && caso ? (
-          <>
-            <p className="section-label" style={{ marginBottom: 12 }}>PRÓXIMA EXECUÇÃO</p>
-
-            <div className="exec-card">
-              <div className="exec-card-top">
-                <div className="exec-icon-wrap">
-                  <FileText size={22} />
-                </div>
-                <div className="exec-card-info">
-                  <p className="exec-case-name">{caso.clientName}{caso.caseNumber ? ` × ${caso.caseNumber}` : ''}</p>
-                  <h3 className="exec-title">{execucao.title}</h3>
-                </div>
-                <Button onClick={() => navigate(`/cases/${caso.id}`)}>
-                  <Play size={13} fill="currentColor" />
-                  Continuar
-                </Button>
-                <button className="exec-arrow-btn" onClick={() => navigate(`/cases/${caso.id}`)}>
-                  <ArrowRight size={17} />
-                </button>
+      {execucao && caso ? (
+        <>
+          {/* ── MISSÃO DO MOMENTO ── */}
+          <section className="mission-card">
+            <div className="mission-main">
+              <div className="mission-top">
+                <span className="mission-pill">
+                  <Flame size={13} /> MISSÃO DO MOMENTO
+                </span>
+                <span className="mission-id">ID: #EXEC-{caso.id.slice(0, 4).toUpperCase()}</span>
               </div>
 
-              <div className="exec-info-row">
-                <span>
-                  <CalendarCheck size={14} />
-                  {prazoLabel(execucao.dueDate)}
-                </span>
-                <span>
-                  <Clock size={14} />
-                  {execucao.businessDaysLeft} dia{execucao.businessDaysLeft !== 1 ? 's' : ''} útil{execucao.businessDaysLeft !== 1 ? 'is' : ''}
-                </span>
-                {execucao.responsavel && (
-                  <span>
-                    <User size={14} />
-                    {execucao.responsavel}
-                  </span>
-                )}
+              <h2 className="mission-title">{execucao.title}</h2>
+              <p className="mission-sub">{caso.title || caso.clientName}</p>
+
+              <div className="mission-metrics">
+                <div className="mission-metric">
+                  <span className="metric-label"><Clock size={12} /> DEADLINE</span>
+                  <strong className="metric-danger">{missionDeadline(execucao.dueDate)}</strong>
+                </div>
+                <div className="mission-metric">
+                  <span className="metric-label"><Gauge size={12} /> TEMPO EST.</span>
+                  <strong>{tempoEst}</strong>
+                </div>
+                <div className="mission-metric">
+                  <span className="metric-label"><Target size={12} /> PROGRESSO</span>
+                  <strong>{progressoStr}</strong>
+                </div>
               </div>
 
-              {etapas.length > 0 && (
-                <div className="exec-stepper">
-                  {etapas.map((et, i) => (
-                    <div key={et.id} className={`exec-step ${et.concluida || i === etapas.findIndex(e => !e.concluida) ? (et.concluida ? 'done' : 'active') : ''}`}>
-                      <div className="exec-step-track">
-                        <div className="exec-step-dot" />
-                        {i < etapas.length - 1 && <div className="exec-step-line" />}
-                      </div>
-                      <span>{et.titulo}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
+                <Play size={15} fill="currentColor" />
+                Continuar Execução
+              </button>
             </div>
 
-            {proximas.length > 0 && (
-              <>
-                <p className="section-label" style={{ margin: '28px 0 12px' }}>PRÓXIMAS EXECUÇÕES</p>
-                <div className="exec-list-panel">
+            {/* Dependency checklist */}
+            <aside className="mission-checklist">
+              <p className="checklist-title">DEPENDENCY CHECKLIST</p>
+              {etapas.length > 0 ? (
+                <ul>
+                  {etapas.map((et, i) => {
+                    const state = et.concluida ? 'done' : i === activeIdx ? 'active' : 'pending'
+                    return (
+                      <li key={et.id} className={`check-item ${state}`}>
+                        {state === 'done' ? (
+                          <CheckCircle2 size={16} className="check-icon" />
+                        ) : state === 'active' ? (
+                          <span className="check-radio" />
+                        ) : (
+                          <Circle size={16} className="check-icon" />
+                        )}
+                        <span>{et.titulo}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <ul>
+                  {caso.recommendedDocuments.slice(0, 6).map((doc, i) => (
+                    <li key={i} className={`check-item ${doc.received ? 'done' : 'pending'}`}>
+                      {doc.received ? (
+                        <CheckCircle2 size={16} className="check-icon" />
+                      ) : (
+                        <Circle size={16} className="check-icon" />
+                      )}
+                      <span>{doc.name}</span>
+                    </li>
+                  ))}
+                  {caso.recommendedDocuments.length === 0 && (
+                    <li className="check-item pending"><Circle size={16} className="check-icon" /><span>Sem etapas cadastradas</span></li>
+                  )}
+                </ul>
+              )}
+            </aside>
+          </section>
+
+          {/* ── Banda inferior: próximas execuções + painel IA ── */}
+          <div className="home-lower">
+            <div className="home-lower-main">
+              <div className="section-head">
+                <h3 className="section-title">Próximas Execuções</h3>
+                <Link to="/trabalho" className="section-link">Ver todas</Link>
+              </div>
+
+              {proximas.length > 0 ? (
+                <div className="next-list">
                   {proximas.map((d, i) => {
                     const c = cases.find((x) => x.id === d.caseId)
                     const { Icon, bg, color } = ROW_ICONS[i % ROW_ICONS.length]
+                    const prio = PRIORITY_TAG[d.priority]
                     return (
-                      <Link
-                        key={d.id}
-                        to={`/cases/${d.caseId}`}
-                        className="exec-list-row"
-                        style={{ borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}
-                      >
-                        <span className="exec-row-icon" style={{ background: bg, color }}>
+                      <Link key={d.id} to={`/cases/${d.caseId}`} className="next-row">
+                        <span className="next-icon" style={{ background: bg, color }}>
                           <Icon size={18} />
                         </span>
-                        <div className="exec-list-info">
+                        <div className="next-info">
                           <strong>{d.title}</strong>
-                          <span>{c?.clientName ?? '—'}</span>
+                          <span>{c?.clientName ?? c?.title ?? '—'}</span>
                         </div>
-                        <div className="exec-list-right">
-                          <time>{prazoLabel(d.dueDate)}</time>
-                          <span>{d.businessDaysLeft}d úteis</span>
+                        <div className="next-deadline">
+                          <span className="next-deadline-label">DEADLINE</span>
+                          <time>{listDeadline(d.dueDate)}</time>
                         </div>
-                        <ArrowRight size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                        <span className={`prio-badge ${prio.cls}`}>{prio.label}</span>
+                        <MoreVertical size={16} className="next-more" />
                       </Link>
                     )
                   })}
                 </div>
+              ) : (
+                <div className="panel-empty">Nenhuma outra execução na fila.</div>
+              )}
+            </div>
 
-                <Link to="/trabalho" className="ver-todas-link">
-                  Ver todas as execuções ({pending.length})
-                  <ArrowRight size={14} />
+            {/* Painel IA Assistente */}
+            <aside className="ia-panel">
+              <div className="ia-panel-head">
+                <span className="ia-panel-icon"><Sparkles size={16} /></span>
+                <strong>IA Assistente</strong>
+              </div>
+              <div className="ia-stats">
+                <div className="ia-stat">
+                  <span>Docs analisados</span>
+                  <strong>{docsRecebidos}</strong>
+                </div>
+                <div className="ia-stat">
+                  <span>Documentos pendentes</span>
+                  <strong>{docsPendentes}</strong>
+                </div>
+              </div>
+              <p className="ia-ready">
+                <span className="ia-ready-dot" />
+                {docsPendentes === 0 ? 'PRONTA PARA GERAR A PEÇA.' : 'AGUARDANDO DOCUMENTOS.'}
+              </p>
+              <button className="ia-cta" onClick={() => navigate(`/cases/${caso.id}/pecas`)}>
+                Consultar IA
+              </button>
+            </aside>
+          </div>
+        </>
+      ) : (
+        <div className="panel mission-empty">
+          <Sparkles size={30} style={{ color: 'var(--c-primary)' }} />
+          <p>Nenhuma execução pendente. Tudo em dia por aqui.</p>
+          <button className="mission-cta" onClick={() => navigate('/cases/new')}>
+            <Play size={15} fill="currentColor" /> Nova Execução
+          </button>
+        </div>
+      )}
+
+      {/* ── Casos Recentes ── */}
+      {cases.length > 0 && (
+        <section className="recent-section">
+          <div className="section-head">
+            <h3 className="section-title">Casos Recentes</h3>
+            {cases.length > 4 && <Link to="/cases" className="section-link">Ver todos</Link>}
+          </div>
+          <div className="recent-grid">
+            {cases.slice(0, 4).map((c, i) => {
+              const tag = STATUS_TAG[c.status]
+              return (
+                <Link key={c.id} to={`/cases/${c.id}`} className="recent-card">
+                  <div className="recent-card-top">
+                    <span className="recent-folder"><Folder size={16} /></span>
+                    <span className="recent-num">{c.caseNumber ?? `#${String(i + 1).padStart(4, '0')}`}</span>
+                  </div>
+                  <strong className="recent-title">{c.title || c.clientName}</strong>
+                  <span className="recent-fase">Fase: {ETAPA_LABEL[c.etapaAtual]}</span>
+                  <div className="recent-card-foot">
+                    <span className={`recent-status ${tag.cls}`}>{tag.label.toUpperCase()}</span>
+                    <span className="recent-open">Abrir <ArrowRight size={13} /></span>
+                  </div>
                 </Link>
-              </>
-            )}
-          </>
-        ) : (
-          <div className="panel" style={{ textAlign: 'center', padding: 48 }}>
-            <Sparkles size={32} style={{ color: 'var(--c-primary)', margin: '0 auto 12px' }} />
-            <p style={{ color: 'var(--muted)' }}>Nenhum prazo pendente. Adicione casos para começar.</p>
-            <div style={{ marginTop: 16 }}>
-              <Link to="/cases/new"><Button>Novo caso</Button></Link>
-            </div>
+              )
+            })}
           </div>
-        )}
-      </div>
-
-      <div className="dashboard-aside">
-        <div className="panel">
-          <p className="section-label" style={{ marginBottom: 18 }}>RESUMO DE HOJE</p>
-          <div className="resumo-list">
-            <div className="resumo-item">
-              <span className="resumo-icon" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
-                <AlertCircle size={16} />
-              </span>
-              <div>
-                <strong>{criticos}</strong>
-                <span>prazos críticos</span>
-              </div>
-            </div>
-            <div className="resumo-item">
-              <span className="resumo-icon" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
-                <CalendarCheck size={16} />
-              </span>
-              <div>
-                <strong>{pending.length}</strong>
-                <span>execuções</span>
-              </div>
-            </div>
-            <div className="resumo-item">
-              <span className="resumo-icon" style={{ background: '#ede8ff', color: '#7c5cfc' }}>
-                <Users size={16} />
-              </span>
-              <div>
-                <strong>{aguardando}</strong>
-                <span>aguardando terceiros</span>
-              </div>
-            </div>
-            <div className="resumo-item">
-              <span className="resumo-icon" style={{ background: 'var(--accent-soft)', color: 'var(--c-primary)' }}>
-                <Clock size={16} />
-              </span>
-              <div>
-                <strong>{tempoStr}</strong>
-                <span>tempo planejado</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-title" style={{ marginBottom: 16 }}>
-            <p className="section-label" style={{ margin: 0 }}>PRÓXIMOS PRAZOS</p>
-            <Link to="/agenda" style={{ fontSize: 13, color: 'var(--c-primary)', fontWeight: 600 }}>Ver todos</Link>
-          </div>
-          {proximosPrazos.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Nenhum prazo pendente.</p>
-          ) : (
-            <div className="timeline-prazos">
-              {proximosPrazos.map((d, i) => {
-                const c = cases.find((x) => x.id === d.caseId)
-                const label = prazoLabel(d.dueDate)
-                const isToday = label === 'Hoje'
-                const isLast = i === proximosPrazos.length - 1
-                return (
-                  <Link key={d.id} to={`/cases/${d.caseId}`} className="timeline-prazo-item">
-                    <div className="timeline-prazo-left">
-                      <span className={`timeline-dot ${isToday ? 'today' : ''}`} />
-                      {!isLast && <span className="timeline-line" />}
-                    </div>
-                    <div className="timeline-prazo-body">
-                      <span className={`timeline-date ${isToday ? 'today' : ''}`}>{label}</span>
-                      <strong>{d.title}</strong>
-                      <span className="timeline-case">{c?.clientName ?? '—'}</span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="tip-card">
-          <Sparkles size={16} style={{ color: 'var(--c-primary)', flexShrink: 0 }} />
-          <p><strong>Foco gera resultado.</strong><br />A Orbian cuida do resto.</p>
-        </div>
-      </div>
+        </section>
+      )}
     </div>
   )
 }

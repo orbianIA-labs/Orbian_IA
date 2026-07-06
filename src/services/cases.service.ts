@@ -13,6 +13,10 @@ type CasoResponse = {
   status: string
   tipoServico: string | null
   etapaAtual: string
+  valorCausa: number
+  honorarios: number
+  valorRecebido: number
+  pendente: number
   createdAt: string
   updatedAt: string
 }
@@ -35,11 +39,11 @@ function mapCaso(c: CasoResponse): LegalCase {
     etapaAtual: (c.etapaAtual ?? 'cadastro') as LegalCase['etapaAtual'],
     progress: 0,
     nextAction: 'Ver detalhes',
-    claimValue: 0,
-    fees: 0,
-    received: 0,
-    pending: 0,
-    expectedProfit: 0,
+    claimValue: c.valorCausa ?? 0,
+    fees: c.honorarios ?? 0,
+    received: c.valorRecebido ?? 0,
+    pending: c.pendente ?? 0,
+    expectedProfit: c.honorarios ?? 0,
     recommendedDocuments: [],
     updatedAt: c.updatedAt,
   }
@@ -58,6 +62,9 @@ export type UpdateCasePatch = {
   status?: CaseStatus
   tipoServico?: string | null
   etapaAtual?: string
+  valorCausa?: number
+  honorarios?: number
+  valorRecebido?: number
 }
 
 export const casesService = {
@@ -86,6 +93,9 @@ export const casesService = {
       areaJuridica: input.area,
       categoria: input.flow || null,
       tipoServico: input.tipoServico || null,
+      valorCausa: input.valorCausa ?? null,
+      honorarios: input.honorarios ?? null,
+      valorRecebido: input.valorRecebido ?? null,
     })
 
     return mapCaso(caso)
