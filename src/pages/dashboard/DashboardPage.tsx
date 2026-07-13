@@ -140,10 +140,8 @@ export function DashboardPage() {
   const proximas = sorted.slice(1, 4)
 
   // Progresso da missão a partir das etapas
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const etapasDone = etapas.filter((e) => e.concluida).length
-  const progressoStr = etapas.length > 0 ? `${etapasDone} de ${etapas.length}` : `${caso?.progress ?? 0}%`
-  const restantes = etapas.length > 0 ? etapas.length - etapasDone : 0
-  const tempoEst = etapas.length > 0 ? `${8 + restantes * 6} min` : '—'
 
   // Estatísticas do painel de IA
   const docsRecebidos = caso?.recommendedDocuments.filter((d) => d.received).length ?? 0

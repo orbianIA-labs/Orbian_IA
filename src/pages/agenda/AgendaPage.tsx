@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Plus, Search } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Search } from 'lucide-react'
 import { deadlinesService } from '@/services/deadlines.service'
 import { casesService } from '@/services/cases.service'
 import { formatDate } from '@/lib/utils'
