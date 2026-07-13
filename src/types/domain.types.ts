@@ -40,10 +40,21 @@ export type EtapaPipeline =
 
 export type LegalCase = {
   id: string
+  protocolo: number
   title: string
   caseNumber?: string
   tribunal: string
   instancia?: string
+  vara?: string
+  comarca?: string
+  uf?: string
+  prioridade: 'alta' | 'media' | 'baixa'
+  statusInicial?: string
+  situacao?: string
+  dataPrevista?: string
+  rascunho: boolean
+  favorito: boolean
+  ultimoAcessoEm?: string
   clientName: string
   clientPhone: string
   clientEmail: string
@@ -68,6 +79,7 @@ export type LegalCase = {
   pending: number
   expectedProfit: number
   recommendedDocuments: Array<{ name: string; received: boolean }>
+  createdAt: string
   updatedAt: string
 }
 

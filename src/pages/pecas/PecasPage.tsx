@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Bot, CheckCircle2, Circle, Copy, Download,
-  FileText, Loader2, Save, Sparkles, Trash2,
+  FileText, Layers, Loader2, Plus, Save, Scale, Sparkles, Trash2, Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OrbianEditor } from '@/components/editor/OrbianEditor'
 import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
 import { documentosService } from '@/services/documentos.service'
+import { toast } from '@/store/toastStore'
+import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
 
 interface PecaGerada {
   id: string
@@ -28,13 +30,27 @@ interface TemplatePeca {
   tags: string[]
 }
 
-type CopilotTab = 'ia' | 'fontes' | 'auditoria' | 'estrutura' | 'historico'
-
 const TIPOS_PECA = [
   'Contestação', 'Petição Inicial', 'Réplica', 'Manifestação',
   'Embargos de Declaração', 'Agravo de Instrumento', 'Apelação',
   'Recurso Ordinário', 'Mandado de Segurança', 'Outros',
 ]
+
+type ToggleKey = 'fortalecer' | 'jurisprudencia' | 'clareza' | 'contraArgumentacao'
+
+const TOGGLES_INFO: { key: ToggleKey; label: string }[] = [
+  { key: 'fortalecer', label: 'Fortalecer fundamentação' },
+  { key: 'jurisprudencia', label: 'Inserir jurisprudência' },
+  { key: 'clareza', label: 'Melhorar clareza' },
+  { key: 'contraArgumentacao', label: 'Contra-argumentação' },
+]
+
+const TOGGLE_INSTRUCOES: Record<ToggleKey, string> = {
+  fortalecer: 'Fortaleça a fundamentação jurídica com mais embasamento legal.',
+  jurisprudencia: 'Inclua referências a jurisprudência aplicável, quando pertinente.',
+  clareza: 'Priorize clareza e simplicidade na linguagem.',
+  contraArgumentacao: 'Antecipe e refute possíveis contra-argumentos da parte contrária.',
+}
 
 export function PecasPage() {
   const { id: casoId } = useParams<{ id: string }>()
@@ -46,10 +62,15 @@ export function PecasPage() {
   const [instrucoes, setInstrucoes] = useState('')
   const [pecaSelecionada, setPecaSelecionada] = useState<PecaGerada | null>(null)
   const [editedContent, setEditedContent] = useState('')
-  const [copilotTab, setCopilotTab] = useState<CopilotTab>('ia')
   const [copilotPrompt, setCopilotPrompt] = useState('')
-  const [copilotResponse, setCopilotResponse] = useState<string | null>(null)
   const [gerando, setGerando] = useState(false)
+  const [editorRevision, setEditorRevision] = useState(0)
+  const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({
+    fortalecer: false, jurisprudencia: false, clareza: false, contraArgumentacao: false,
+  })
+  const [moduloAtivo, setModuloAtivo] = useState<string | null>(null)
+  const [mostrarNovaPeca, setMostrarNovaPeca] = useState(true)
+  const editorContainerRef = useRef<HTMLDivElement>(null)
 
   const { data: caso } = useQuery({
     queryKey: ['case', casoId],
@@ -78,6 +99,9 @@ export function PecasPage() {
 
   useEffect(() => {
     setEditedContent(pecaSelecionada?.conteudo ?? '')
+    setModuloAtivo(null)
+    setEditorRevision((r) => r + 1)
+    if (pecaSelecionada) setMostrarNovaPeca(false)
   }, [pecaSelecionada])
 
   const gerar = useMutation({
@@ -107,6 +131,16 @@ export function PecasPage() {
       qc.invalidateQueries({ queryKey: ['pecas', casoId] })
       setPecaSelecionada(peca)
     },
+  })
+
+  const avancarPrazos = useMutation({
+    mutationFn: async () => {
+      if (pecaSelecionada && editedContent !== pecaSelecionada.conteudo) {
+        await api.patch(`/api/casos/${casoId}/pecas/${pecaSelecionada.id}`, { conteudo: editedContent })
+      }
+      return casesService.update(casoId!, { etapaAtual: 'prazos' })
+    },
+    onSuccess: () => navigate(`/cases/${casoId}`),
   })
 
   const deletar = useMutation({
@@ -147,23 +181,46 @@ export function PecasPage() {
     win.print()
   }
 
-  async function enviarParaCopilot() {
-    if (!copilotPrompt.trim() || gerando) return
+  // A IA aplica a instrução diretamente no conteúdo da peça (não devolve só um texto para copiar).
+  async function executarInstrucao(instrucao: string) {
+    if (gerando || !pecaSelecionada) return
     setGerando(true)
-    setCopilotResponse(null)
     try {
-      const { data } = await api.post<{ resposta: string }>(`/api/casos/${casoId}/pecas/copilot`, {
-        prompt: copilotPrompt,
-        pecaConteudo: editedContent || null,
-      })
-      setCopilotResponse(data.resposta)
-      setCopilotPrompt('')
+      const { data } = await api.post<{ conteudo: string }>(
+        `/api/casos/${casoId}/pecas/${pecaSelecionada.id}/editar-ia`,
+        { instrucao, conteudoAtual: editedContent },
+      )
+      setEditedContent(data.conteudo)
+      setEditorRevision((r) => r + 1)
+      setModuloAtivo(null)
+      toast('A IA aplicou a edição na peça. Revise e clique em Salvar.', 'success')
     } catch {
-      setCopilotResponse('Não foi possível consultar a IA agora. Tente novamente em instantes.')
+      toast('Não foi possível aplicar a edição agora. Tente novamente em instantes.', 'error')
     } finally {
       setGerando(false)
     }
   }
+
+  async function enviarParaCopilot() {
+    if (!copilotPrompt.trim() || gerando) return
+    await executarInstrucao(copilotPrompt)
+    setCopilotPrompt('')
+  }
+
+  // Ações rápidas: montam uma instrução real a partir da ação + toggles ativos e aplicam via IA.
+  function executarAcaoRapida(base: string) {
+    const extras = TOGGLES_INFO.filter((t) => toggles[t.key]).map((t) => TOGGLE_INSTRUCOES[t.key])
+    const instrucao = [base, ...extras].join(' ')
+    executarInstrucao(instrucao)
+  }
+
+  function moduloPresente(termos: string[]) {
+    return extrairSecaoHtml(editedContent, termos) !== null
+  }
+
+  const secaoModuloAtivo = moduloAtivo
+    ? extrairSecaoHtml(editedContent, MODULOS.find((m) => m.nome === moduloAtivo)?.termos ?? [])
+    : null
 
   return (
     <div className="pecas-layout">
@@ -182,6 +239,7 @@ export function PecasPage() {
         </div>
 
         {/* ── Formulário de geração ── */}
+        {mostrarNovaPeca && (
         <div className="pecas-gen-form">
           <p className="section-label" style={{ marginBottom: 10 }}>NOVA PEÇA</p>
 
@@ -245,10 +303,23 @@ export function PecasPage() {
             </p>
           )}
         </div>
+        )}
 
         {/* ── Lista de peças geradas ── */}
         <div className="pecas-list-section">
-          <p className="section-label" style={{ marginBottom: 8 }}>PEÇAS GERADAS</p>
+          <div className="section-head" style={{ marginBottom: 8 }}>
+            <p className="section-label" style={{ margin: 0 }}>PEÇAS GERADAS</p>
+            {!mostrarNovaPeca && (
+              <button
+                className="pecas-new-toggle"
+                onClick={() => setMostrarNovaPeca(true)}
+                aria-label="Gerar nova peça"
+                title="Gerar nova peça"
+              >
+                <Plus size={14} />
+              </button>
+            )}
+          </div>
           {isLoading && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Carregando...</p>}
           {!isLoading && pecas.length === 0 && (
             <p style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhuma peça gerada ainda.</p>
@@ -281,12 +352,42 @@ export function PecasPage() {
       {/* ── Editor + Copilot ── */}
       {pecaSelecionada ? (
         <div className="pecas-editor-area">
+          {/* ── Estrutura da Peça ── */}
+          <aside className="pecas-modules-panel">
+            <div className="section-head" style={{ marginBottom: 10 }}>
+              <p className="section-label" style={{ margin: 0 }}>ESTRUTURA DA PEÇA</p>
+            </div>
+            <button
+              className={`pecas-module-item ${moduloAtivo === null ? 'active' : ''}`}
+              onClick={() => setModuloAtivo(null)}
+            >
+              <Layers size={15} />
+              Visualizar a peça inteira
+            </button>
+            {MODULOS.map((m) => {
+              const presente = moduloPresente(m.termos)
+              return (
+                <button
+                  key={m.nome}
+                  className={`pecas-module-item ${presente ? 'done' : ''} ${moduloAtivo === m.nome ? 'active' : ''}`}
+                  onClick={() => setModuloAtivo(m.nome)}
+                >
+                  {presente ? <CheckCircle2 size={15} /> : <Circle size={15} />}
+                  {m.nome}
+                </button>
+              )
+            })}
+            <p className="pecas-module-hint">Clique em um módulo para ver apenas esse trecho da peça.</p>
+          </aside>
+
           {/* ── Editor ── */}
           <div className="pecas-editor-main">
             <div className="pecas-editor-topbar">
               <div>
                 <h2 style={{ fontSize: 16, margin: 0 }}>{pecaSelecionada.categoria}</h2>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>v{pecaSelecionada.versao}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  v{pecaSelecionada.versao}{moduloAtivo ? ` · ${moduloAtivo}` : ''}
+                </span>
               </div>
               <div className="button-row" style={{ margin: 0 }}>
                 <Button variant="secondary" style={{ fontSize: 12 }} onClick={copiarTexto}>
@@ -301,13 +402,23 @@ export function PecasPage() {
               </div>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <OrbianEditor
-                key={pecaSelecionada.id}
-                content={pecaSelecionada.conteudo}
-                onChange={setEditedContent}
-              />
-            </div>
+            {moduloAtivo ? (
+              <div className="pecas-modulo-preview">
+                {secaoModuloAtivo ? (
+                  <div dangerouslySetInnerHTML={{ __html: secaoModuloAtivo }} />
+                ) : (
+                  <p className="pecas-module-hint">Este trecho ainda não foi identificado no texto gerado.</p>
+                )}
+              </div>
+            ) : (
+              <div ref={editorContainerRef} style={{ flex: 1, overflow: 'auto' }}>
+                <OrbianEditor
+                  key={`${pecaSelecionada.id}-${editorRevision}`}
+                  content={editedContent}
+                  onChange={setEditedContent}
+                />
+              </div>
+            )}
 
             {/* ── Bottom bar (WF09) ── */}
             <div className="editor-bottom-bar">
@@ -327,6 +438,7 @@ export function PecasPage() {
               </Button>
               <div style={{ flex: 1 }} />
               <Button
+                variant="secondary"
                 onClick={() => salvar.mutate()}
                 disabled={salvar.isPending || editedContent === pecaSelecionada.conteudo}
                 style={{ fontSize: 13 }}
@@ -334,114 +446,82 @@ export function PecasPage() {
                 <Save size={14} /> {salvar.isPending ? 'Salvando...' : 'Salvar'}
               </Button>
               <Button
-                variant="secondary"
-                onClick={() => navigate(`/cases/${casoId}`)}
+                onClick={() => avancarPrazos.mutate()}
+                disabled={avancarPrazos.isPending}
                 style={{ fontSize: 13 }}
               >
-                <CheckCircle2 size={14} /> Concluir execução
+                <CheckCircle2 size={14} /> {avancarPrazos.isPending ? 'Avançando...' : 'Avançar para Prazos'}
               </Button>
             </div>
           </div>
 
           {/* ── Copilot IA (WF09) ── */}
           <aside className="copilot-panel">
-            <div className="copilot-tabs">
-              {([
-                ['ia', 'IA'],
-                ['fontes', 'Fontes'],
-                ['auditoria', 'Auditoria'],
-                ['estrutura', 'Estrutura'],
-                ['historico', 'Histórico'],
-              ] as [CopilotTab, string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  className={`copilot-tab ${copilotTab === key ? 'active' : ''}`}
-                  onClick={() => setCopilotTab(key)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
             <div className="copilot-content">
-              {copilotTab === 'ia' && (
-                <div className="copilot-ia">
-                  <div className="copilot-ia-header">
-                    <Bot size={16} style={{ color: 'var(--c-primary)' }} />
-                    <strong>Copilot IA</strong>
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 12 }}>
-                    Peça ajuda para melhorar a peça, sugerir argumentos ou revisar trechos.
-                  </p>
-
-                  {copilotResponse && (
-                    <div className="copilot-response">
-                      <p style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{copilotResponse}</p>
-                    </div>
-                  )}
-
-                  <textarea
-                    className="copilot-input"
-                    placeholder="Ex.: Sugira argumentos para o pedido de danos morais..."
-                    rows={4}
-                    value={copilotPrompt}
-                    onChange={(e) => setCopilotPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.ctrlKey) enviarParaCopilot()
-                    }}
-                  />
-                  <Button
-                    style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}
-                    onClick={enviarParaCopilot}
-                    disabled={!copilotPrompt.trim() || gerando}
-                  >
-                    {gerando ? <><Loader2 size={13} className="spin" /> Pensando...</> : <><Sparkles size={13} /> Enviar</>}
-                  </Button>
+              <div className="copilot-ia">
+                <div className="copilot-ia-header">
+                  <Bot size={16} style={{ color: 'var(--c-primary)' }} />
+                  <strong>Copilot IA</strong>
                 </div>
-              )}
+                <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 12 }}>
+                  Peça ajuda para melhorar a peça, sugerir argumentos ou revisar trechos.
+                </p>
 
-              {copilotTab === 'fontes' && (
-                <div>
-                  <p className="section-label" style={{ marginBottom: 10 }}>FONTES JURÍDICAS</p>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-                    Legislação e jurisprudência relevante para esta peça será listada aqui após a geração.
-                  </p>
-                </div>
-              )}
-
-              {copilotTab === 'auditoria' && (
-                <div>
-                  <p className="section-label" style={{ marginBottom: 10 }}>AUDITORIA</p>
-                  <div className="copilot-audit-item ok">
-                    <CheckCircle2 size={14} /> Estrutura da peça verificada
-                  </div>
-                  <div className="copilot-audit-item ok">
-                    <CheckCircle2 size={14} /> Formatação conforme padrão
-                  </div>
-                  <div className="copilot-audit-item warn">
-                    <Circle size={14} /> Revise o pedido final
-                  </div>
-                </div>
-              )}
-
-              {copilotTab === 'estrutura' && (
-                <div>
-                  <p className="section-label" style={{ marginBottom: 10 }}>ESTRUTURA</p>
-                  {['Endereçamento', 'Qualificação das partes', 'Dos fatos', 'Do direito', 'Dos pedidos', 'Encerramento'].map((s) => (
-                    <div key={s} className="copilot-struct-item">
-                      <Circle size={12} style={{ color: 'var(--c-primary)' }} />
-                      <span>{s}</span>
-                    </div>
+                <p className="section-label" style={{ marginBottom: 8 }}>FUNÇÕES ATIVAS</p>
+                <div className="copilot-toggles">
+                  {TOGGLES_INFO.map((t) => (
+                    <label key={t.key} className="copilot-toggle-row">
+                      <span>{t.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={toggles[t.key]}
+                        onChange={(e) => setToggles((prev) => ({ ...prev, [t.key]: e.target.checked }))}
+                      />
+                    </label>
                   ))}
                 </div>
-              )}
 
-              {copilotTab === 'historico' && (
-                <div>
-                  <p className="section-label" style={{ marginBottom: 10 }}>HISTÓRICO</p>
-                  <p style={{ fontSize: 13, color: 'var(--muted)' }}>v{pecaSelecionada.versao} — versão atual</p>
+                <p className="section-label" style={{ margin: '14px 0 8px' }}>AÇÕES RÁPIDAS</p>
+                <div className="copilot-quick-actions">
+                  <button disabled={gerando} onClick={() => executarAcaoRapida('Melhore a argumentação jurídica de toda a peça, tornando-a mais persuasiva e tecnicamente sólida.')}>
+                    <Wand2 size={13} /> Melhorar argumentação
+                  </button>
+                  <button disabled={gerando} onClick={() => executarAcaoRapida('Reescreva a peça de forma mais clara e objetiva, mantendo o sentido jurídico.')}>
+                    <Sparkles size={13} /> Reescrever
+                  </button>
+                  <button disabled={gerando} onClick={() => executarAcaoRapida('Expanda a peça, adicionando mais fundamentação e detalhamento onde fizer sentido.')}>
+                    <Plus size={13} /> Expandir
+                  </button>
+                  <button disabled={gerando} onClick={() => executarAcaoRapida('Resuma a peça, mantendo os pontos jurídicos essenciais e a estrutura de seções.')}>
+                    <FileText size={13} /> Resumir
+                  </button>
+                  <button disabled={gerando} onClick={() => executarAcaoRapida('Insira jurisprudência aplicável na Fundamentação Jurídica da peça.')}>
+                    <Scale size={13} /> Inserir jurisprudência
+                  </button>
                 </div>
-              )}
+
+                {gerando && (
+                  <p className="copilot-applying"><Loader2 size={13} className="spin" /> A IA está aplicando a edição na peça...</p>
+                )}
+
+                <textarea
+                  className="copilot-input"
+                  placeholder="Ex.: Adicione o pedido de danos morais na peça..."
+                  rows={4}
+                  value={copilotPrompt}
+                  onChange={(e) => setCopilotPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) enviarParaCopilot()
+                  }}
+                />
+                <Button
+                  style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}
+                  onClick={enviarParaCopilot}
+                  disabled={!copilotPrompt.trim() || gerando}
+                >
+                  {gerando ? <><Loader2 size={13} className="spin" /> Pensando...</> : <><Sparkles size={13} /> Enviar</>}
+                </Button>
+              </div>
             </div>
           </aside>
         </div>

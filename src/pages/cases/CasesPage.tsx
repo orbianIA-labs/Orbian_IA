@@ -17,10 +17,11 @@ import { areaLabel, formatDate } from '@/lib/utils'
 import type { CaseStatus, Deadline, EtapaPipeline, LegalCase } from '@/types/domain.types'
 
 const TABS = [
-  { value: 'all', label: 'Todos os Casos' },
   { value: 'em_andamento', label: 'Em Execução' },
+  { value: 'all', label: 'Todos os Casos' },
   { value: 'aguardando_documentos', label: 'Aguardando Documentos' },
   { value: 'encerrados', label: 'Encerrados' },
+  { value: 'arquivado', label: 'Arquivados' },
 ] as const
 
 const STAGE_ORDER: { key: EtapaPipeline; label: string }[] = [
@@ -63,14 +64,14 @@ function isOverdue(dueDate: string) {
 
 function matchesTab(c: LegalCase, tab: (typeof TABS)[number]['value']) {
   if (tab === 'all') return true
-  if (tab === 'encerrados') return c.status === 'finalizado' || c.status === 'arquivado'
+  if (tab === 'encerrados') return c.status === 'finalizado'
   return c.status === (tab as CaseStatus)
 }
 
 export function CasesPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<(typeof TABS)[number]['value']>('all')
+  const [tab, setTab] = useState<(typeof TABS)[number]['value']>('em_andamento')
 
   const { data: cases = [], isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => casesService.list() })
   const { data: deadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })

@@ -1,61 +1,30 @@
 import {
-  ArrowRight,
   CheckCircle2,
   Clock,
   FileText,
-  Folder,
   FolderKanban,
-  MoreVertical,
+  Hourglass,
+  Image as ImageIcon,
+  Lightbulb,
   Play,
-  Scale,
   Sparkles,
+  Workflow,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
 import { useAuthStore } from '@/store/authStore'
-import type { CaseStatus, Deadline, EtapaPipeline } from '@/types/domain.types'
+import type { Deadline, EtapaPipeline } from '@/types/domain.types'
 
-const ETAPA_LABEL: Record<EtapaPipeline, string> = {
-  cadastro: 'Cadastro',
-  documentos: 'Documentos',
-  pecas: 'Gerar Peças',
-  prazos: 'Prazos',
-  revisao: 'Revisão',
-  protocolo: 'Protocolo',
-  atualizacoes: 'Atualizações',
-  encerramento: 'Finalização',
-}
-
-const MISSION_PIPELINE: { key: EtapaPipeline; label: string }[] = [
-  { key: 'cadastro', label: 'Cadastro' },
-  { key: 'documentos', label: 'Documentos' },
-  { key: 'pecas', label: 'Peça' },
-  { key: 'prazos', label: 'Prazo' },
-  { key: 'revisao', label: 'Revisão' },
-  { key: 'encerramento', label: 'Encerramento' },
-]
-
-const STATUS_TAG: Record<CaseStatus, { label: string; cls: string }> = {
-  em_andamento: { label: 'Ativo', cls: 'tag-active' },
-  aguardando_documentos: { label: 'Aguardando', cls: 'tag-wait' },
-  aguardando_prazo: { label: 'Aguardando', cls: 'tag-wait' },
-  finalizado: { label: 'Concluído', cls: 'tag-done' },
-  arquivado: { label: 'Arquivado', cls: 'tag-muted' },
-}
-
-const PRIORITY_TAG: Record<Deadline['priority'], { label: string; cls: string }> = {
-  critical: { label: 'ALTA', cls: 'prio-alta' },
-  attention: { label: 'MÉDIA', cls: 'prio-media' },
-  normal: { label: 'BAIXA', cls: 'prio-baixa' },
-}
-
-const ROW_ICONS = [
-  { Icon: FileText, bg: '#e8f0ff', color: '#2565ea' },
-  { Icon: Scale, bg: '#ede8ff', color: '#7c5cfc' },
-  { Icon: FileText, bg: '#e8f9f0', color: '#2ba36a' },
-  { Icon: Scale, bg: '#fff3e8', color: '#e2622c' },
+const MISSION_PIPELINE: { key: EtapaPipeline; label: string; icon: typeof FileText }[] = [
+  { key: 'cadastro', label: 'Cadastro', icon: CheckCircle2 },
+  { key: 'documentos', label: 'Documentos', icon: CheckCircle2 },
+  { key: 'pecas', label: 'Peça', icon: FileText },
+  { key: 'prazos', label: 'Prazo', icon: Hourglass },
+  { key: 'revisao', label: 'Revisão', icon: ImageIcon },
+  { key: 'encerramento', label: 'Encerramento', icon: CheckCircle2 },
 ]
 
 function score(d: Deadline): number {
@@ -82,16 +51,6 @@ function dayLabel(dateStr: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
-/** "Hoje, 17:00" quando há horário; senão só o dia */
-function listDeadline(dateStr: string) {
-  const d = new Date(dateStr)
-  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
-  const day = dayLabel(dateStr)
-  if (!hasTime || day === 'Atrasado') return day
-  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  return `${day}, ${time}`
-}
-
 /** Destaque da missão: "2h41 restante" no mesmo dia, senão o rótulo do dia */
 function missionDeadline(dateStr: string) {
   const now = new Date()
@@ -109,6 +68,10 @@ function missionDeadline(dateStr: string) {
     return 'Hoje'
   }
   return dayLabel(dateStr)
+}
+
+function hhmm(d: Date) {
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function DashboardPage() {
@@ -129,7 +92,6 @@ export function DashboardPage() {
   const sorted = [...pending].sort((a, b) => score(b) - score(a))
   const execucao = sorted[0]
   const caso = execucao ? cases.find((c) => c.id === execucao.caseId) : null
-  const proximas = sorted.slice(1, 4)
 
   // Estatísticas do painel de IA
   const docsRecebidos = caso?.recommendedDocuments.filter((d) => d.received).length ?? 0
@@ -137,214 +99,219 @@ export function DashboardPage() {
 
   // Estatísticas reais para os tiles do Command Center
   const casosAtivos = cases.filter((c) => c.status !== 'arquivado' && c.status !== 'finalizado').length
-  const casosConcluidos = cases.filter((c) => c.status === 'finalizado').length
+  const casosHoje = cases.filter((c) => new Date(c.updatedAt).toDateString() === new Date().toDateString()).length
   const prazosUrgentes = pending.filter((d) => d.priority === 'critical').length
 
   const missionStageIdx = caso ? Math.max(0, MISSION_PIPELINE.findIndex((s) => s.key === caso.etapaAtual)) : 0
+
+  // ── Motor de Execução: foca no caso aberto mais recentemente pelo advogado;
+  // sem nenhum acesso registrado, cai para o caso marcado como favorito. ──
+  const casoRecente = [...cases]
+    .filter((c) => c.ultimoAcessoEm)
+    .sort((a, b) => new Date(b.ultimoAcessoEm!).getTime() - new Date(a.ultimoAcessoEm!).getTime())[0]
+  const casoFavorito = cases.find((c) => c.favorito)
+  const casoFoco = casoRecente ?? casoFavorito ?? caso
+
+  const { data: pecasFoco = [] } = useQuery<{ id: string; categoria: string; createdAt: string }[]>({
+    queryKey: ['pecas', casoFoco?.id],
+    queryFn: () => api.get(`/api/casos/${casoFoco!.id}/pecas`).then((r) => r.data),
+    enabled: !!casoFoco?.id,
+  })
+
+  const feed = casoFoco ? [
+    ...(pecasFoco[0] ? [{
+      time: hhmm(new Date(pecasFoco[0].createdAt)),
+      title: 'Peça gerada',
+      text: `"${pecasFoco[0].categoria}" foi gerada para "${casoFoco.title || casoFoco.clientName}".`,
+    }] : []),
+    {
+      time: hhmm(new Date(casoFoco.updatedAt)),
+      title: casoRecente ? 'Caso aberto recentemente' : casoFavorito ? 'Caso favorito' : 'Caso atualizado',
+      text: `"${casoFoco.title || casoFoco.clientName}" · etapa atual: ${MISSION_PIPELINE.find((s) => s.key === casoFoco.etapaAtual)?.label ?? casoFoco.etapaAtual}.`,
+    },
+  ] : []
 
   return (
     <div className="home">
       {/* ── Cabeçalho: saudação + progresso ── */}
       <header className="home-header">
-        <div>
-          <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}.</h1>
+        <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}.</h1>
+        <div className="home-progress-row">
+          <div className="home-progress-full">
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
           <p>
-            Sua operação jurídica está <strong>{pct}% organizada</strong> hoje.{' '}
-            {total} execuç{total === 1 ? 'ão' : 'ões'}, {concluidas} já {concluidas === 1 ? 'concluída' : 'concluídas'}.
+            Sua operação jurídica está <strong>{pct}% organizada</strong> hoje.
           </p>
-        </div>
-        <div className="home-progress">
-          <div className="home-progress-labels">
-            <span>{pct}% CONCLUÍDO</span>
-            <span className="muted">META: 100%</span>
-          </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${pct}%` }} />
-          </div>
         </div>
       </header>
 
       <div className="cc-body">
        <div className="cc-main">
         {execucao && caso ? (
-          <>
-            {/* ── EXECUÇÃO EM MOVIMENTO ── */}
-            <section className="mission-card">
-              <div className="mission-main">
-                <div className="mission-top">
-                  <span className="mission-pill">
-                    <Sparkles size={13} /> EXECUÇÃO EM MOVIMENTO
-                  </span>
-                  <span className="mission-id">ID: #EXEC-{caso.id.slice(0, 4).toUpperCase()}</span>
-                </div>
-
-                <nav className="cc-stepper">
-                  {MISSION_PIPELINE.map((stage, idx) => {
-                    const done = idx < missionStageIdx
-                    const active = idx === missionStageIdx
-                    return (
-                      <div key={stage.key} className={`cc-step ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
-                        <span className="cc-step-dot">{done ? <CheckCircle2 size={16} /> : idx + 1}</span>
-                        <span className="cc-step-label">{stage.label}</span>
-                      </div>
-                    )
-                  })}
-                </nav>
-
-                <div className="mission-bottom">
-                  <div>
-                    <h2 className="mission-title">{caso.title || caso.clientName}</h2>
-                    <p className="mission-sub">{caso.caseNumber ?? execucao.title} · {missionDeadline(execucao.dueDate)}</p>
-                  </div>
-                  <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
-                    <Play size={15} fill="currentColor" />
-                    Continuar execução
-                  </button>
-                </div>
+          <section className="mission-card">
+            <div className="mission-main">
+              <div className="mission-top">
+                <span className="mission-heading">
+                  <span className="section-icon"><Sparkles size={14} /></span>
+                  Execução em Movimento
+                </span>
+                <span className="fluxo-prioritario-pill">Fluxo Prioritário</span>
               </div>
-            </section>
 
-          </>
+              <nav className="cc-stepper">
+                {MISSION_PIPELINE.map((stage, idx) => {
+                  const done = idx < missionStageIdx
+                  const active = idx === missionStageIdx
+                  const StageIcon = stage.icon
+                  return (
+                    <div key={stage.key} className={`cc-step ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
+                      <span className="cc-step-dot">{done ? <CheckCircle2 size={16} /> : <StageIcon size={13} />}</span>
+                      <span className="cc-step-label">{stage.label}</span>
+                    </div>
+                  )
+                })}
+              </nav>
+
+              <div className="mission-bottom">
+                <div>
+                  <h2 className="mission-title">{caso.title || caso.clientName}</h2>
+                  <p className="mission-sub">{caso.caseNumber ?? execucao.title} · {missionDeadline(execucao.dueDate)}</p>
+                </div>
+                <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
+                  <Play size={15} fill="currentColor" />
+                  Continuar execução
+                </button>
+              </div>
+            </div>
+          </section>
         ) : (
-        <div className="panel mission-empty">
-          <Sparkles size={30} style={{ color: 'var(--c-primary)' }} />
-          <p>Nenhuma execução pendente. Tudo em dia por aqui.</p>
-          <button className="mission-cta" onClick={() => navigate('/cases/new')}>
-            <Play size={15} fill="currentColor" /> Nova Execução
-          </button>
-        </div>
-      )}
+          <div className="panel mission-empty">
+            <Sparkles size={30} style={{ color: 'var(--c-primary)' }} />
+            <p>Nenhuma execução pendente. Tudo em dia por aqui.</p>
+            <button className="mission-cta" onClick={() => navigate('/cases/new')}>
+              <Play size={15} fill="currentColor" /> Nova Execução
+            </button>
+          </div>
+        )}
 
-        {/* ── Próximas Execuções ── */}
-        <div className="home-body-col">
+        {/* ── Motor de Execução ── */}
+        <div className="home-body-col motor-execucao">
           <div className="section-head">
             <div className="section-head-left">
-              <span className="section-icon"><Clock size={13} /></span>
-              <h3 className="section-title">Próximas Execuções</h3>
+              <span className="section-icon"><Workflow size={13} /></span>
+              <h3 className="section-title">Motor de Execução</h3>
             </div>
-            <Link to="/agenda" className="section-link">Ver todas</Link>
+            <span className="live-insights-tag">
+              <span className="live-dot" /> Live Insights
+            </span>
           </div>
 
-          {proximas.length > 0 ? (
-            <div className="next-list">
-              {proximas.map((d, i) => {
-                const c = cases.find((x) => x.id === d.caseId)
-                const { Icon, bg, color } = ROW_ICONS[i % ROW_ICONS.length]
-                const prio = PRIORITY_TAG[d.priority]
-                return (
-                  <Link key={d.id} to={`/cases/${d.caseId}`} className="next-row">
-                    <span className="next-icon" style={{ background: bg, color }}>
-                      <Icon size={18} />
-                    </span>
-                    <div className="next-info">
-                      <strong>{d.title}</strong>
-                      <span>{c?.clientName ?? c?.title ?? '—'}</span>
-                    </div>
-                    <div className="next-deadline">
-                      <span className="next-deadline-label">DEADLINE</span>
-                      <time>{listDeadline(d.dueDate)}</time>
-                    </div>
-                    <span className={`prio-badge ${prio.cls}`}>{prio.label}</span>
-                    <MoreVertical size={16} className="next-more" />
-                  </Link>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="panel-empty">
-              <Clock size={26} />
-              <span>Nenhuma outra execução na fila.</span>
-            </div>
-          )}
+          <div className="motor-feed">
+            {feed.length > 0 ? feed.map((item, i) => (
+              <div key={i} className="motor-item">
+                <span className="motor-dot" />
+                <div className="motor-item-body">
+                  <span className="motor-time">{item.time}</span>
+                  <div className="motor-item-card">
+                    <strong>{item.title}</strong>
+                    {item.text && <p>"{item.text}"</p>}
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="panel-empty">
+                <Workflow size={26} />
+                <span>Nenhum caso recente ou favorito para acompanhar ainda.</span>
+              </div>
+            )}
+          </div>
         </div>
        </div>
 
-       {/* ── Aside: estatísticas reais + Casos Recentes + IA Assistente ── */}
+       {/* ── Aside: estatísticas reais + Orbian Intelligence ── */}
        <aside className="cc-aside">
         <div className="cc-stat-grid">
           <div className="cc-stat-tile">
             <span className="cc-stat-label"><FolderKanban size={13} /> CASOS ATIVOS</span>
-            <strong>{casosAtivos}</strong>
+            <div className="cc-stat-value-row">
+              <strong>{casosAtivos}</strong>
+              {casosHoje > 0 && <span className="cc-stat-flag cc-stat-flag-muted">+{casosHoje} hoje</span>}
+            </div>
           </div>
           <div className="cc-stat-tile">
-            <span className="cc-stat-label"><CheckCircle2 size={13} /> CONCLUÍDOS</span>
-            <strong>{casosConcluidos}</strong>
+            <span className="cc-stat-label"><Play size={13} /> EXECUÇÕES</span>
+            <div className="cc-stat-value-row">
+              <strong>{total}</strong>
+              {total > 0 && <span className="cc-stat-flag cc-stat-flag-muted">In live</span>}
+            </div>
           </div>
           <div className="cc-stat-tile">
             <span className="cc-stat-label"><Clock size={13} /> PRAZOS</span>
-            <strong>{pending.length}</strong>
-            {prazosUrgentes > 0 && <span className="cc-stat-flag">{prazosUrgentes} urgente{prazosUrgentes > 1 ? 's' : ''}</span>}
+            <div className="cc-stat-value-row">
+              <strong>{pending.length}</strong>
+              {prazosUrgentes > 0 && <span className="cc-stat-flag cc-stat-flag-danger">Urgente</span>}
+            </div>
           </div>
           <div className="cc-stat-tile">
             <span className="cc-stat-label"><FileText size={13} /> DOCUMENTOS</span>
-            <strong>{docsRecebidos}</strong>
+            <div className="cc-stat-value-row">
+              <strong>{docsRecebidos}</strong>
+              <span className="cc-stat-flag cc-stat-flag-muted">OCR ok</span>
+            </div>
           </div>
         </div>
 
-        <div className="home-body-col">
-          <div className="section-head">
-            <div className="section-head-left">
-              <span className="section-icon"><Folder size={13} /></span>
-              <h3 className="section-title">Casos Recentes</h3>
-            </div>
-            {cases.length > 4 && <Link to="/cases" className="section-link">Ver todos</Link>}
-          </div>
-
-          {cases.length > 0 ? (
-            <div className="recent-list">
-              {cases.slice(0, 4).map((c) => {
-                const tag = STATUS_TAG[c.status]
-                return (
-                  <Link key={c.id} to={`/cases/${c.id}`} className="recent-row">
-                    <span className="recent-folder"><Folder size={16} /></span>
-                    <div className="recent-row-info">
-                      <strong>{c.title || c.clientName}</strong>
-                      <span>{c.caseNumber ?? ETAPA_LABEL[c.etapaAtual]}</span>
-                    </div>
-                    <span className={`recent-status ${tag.cls}`}>{tag.label.toUpperCase()}</span>
-                    <ArrowRight size={14} className="recent-open" />
-                  </Link>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="panel-empty">
-              <Folder size={26} />
-              <span>Nenhum caso cadastrado.</span>
-            </div>
-          )}
-        </div>
-
-        {/* Painel IA Assistente */}
-        <div className="ia-panel">
+        {/* Painel Orbian Intelligence */}
+        <div className="ia-panel orbian-intel">
           <div className="ia-panel-head">
             <span className="ia-panel-icon"><Sparkles size={16} /></span>
-            <strong>IA Assistente</strong>
+            <strong>Orbian Intelligence</strong>
           </div>
-          <div className="ia-stats">
-            <div className="ia-stat">
-              <span>Docs analisados</span>
-              <strong>{docsRecebidos}</strong>
-            </div>
-            <div className="ia-stat">
-              <span>Documentos pendentes</span>
-              <strong>{docsPendentes}</strong>
-            </div>
+
+          <div className="intel-card">
+            <span className="intel-card-label">ALERTA DE PRODUTIVIDADE</span>
+            <p>
+              {prazosUrgentes > 0
+                ? `Detectamos ${prazosUrgentes} prazo${prazosUrgentes > 1 ? 's' : ''} com risco de atraso por falta de documento de terceiros.`
+                : 'Nenhum prazo em risco no momento.'}
+            </p>
+            <button className="intel-card-link" type="button" onClick={() => navigate('/deadlines')}>
+              Enviar notificações automáticas →
+            </button>
           </div>
-          <p className="ia-ready">
-            <span className="ia-ready-dot" />
-            {!caso ? 'SEM EXECUÇÃO ATIVA.' : docsPendentes === 0 ? 'PRONTA PARA GERAR A PEÇA.' : 'AGUARDANDO DOCUMENTOS.'}
-          </p>
+
+          <div className="intel-card">
+            <span className="intel-card-label">INSIGHT ESTRATÉGICO</span>
+            <p>
+              {docsPendentes === 0 && caso
+                ? `Todos os documentos de "${caso.title || caso.clientName}" foram recebidos.`
+                : `Sua operação processou ${docsRecebidos} documento${docsRecebidos === 1 ? '' : 's'} até agora.`}
+            </p>
+          </div>
+
           <button
-            className="ia-cta"
-            onClick={() => caso && navigate(`/cases/${caso.id}/pecas`)}
-            disabled={!caso}
+            className="intel-suggestion"
+            type="button"
+            onClick={() => caso && navigate(`/cases/${caso.id}/documentos`)}
           >
-            Consultar IA
+            <Lightbulb size={15} />
+            <span>Gostaria que eu automatizasse a extração de dados das próximas 5 petições?</span>
           </button>
         </div>
        </aside>
       </div>
+
+      <footer className="dashboard-footer">
+        <span>© {new Date().getFullYear()} Orbian.AI - O Sistema Operacional da Advocacia.</span>
+        <div className="dashboard-footer-links">
+          <a href="#">Privacidade</a>
+          <a href="#">Termos</a>
+          <a href="#">Suporte</a>
+        </div>
+      </footer>
     </div>
   )
 }

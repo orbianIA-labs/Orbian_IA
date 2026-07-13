@@ -14,6 +14,13 @@ export const createCaseSchema = z.object({
   area: z.enum(['civil', 'trabalhista', 'tributario', 'penal', 'familia', 'consumidor', 'empresarial', 'criminal']),
   tribunal: z.string().optional(),
   instancia: z.string().optional(),
+  vara: z.string().optional(),
+  comarca: z.string().optional(),
+  uf: z.string().optional(),
+  prioridade: z.enum(['alta', 'media', 'baixa']).optional(),
+  statusInicial: z.string().optional(),
+  situacao: z.enum(['a_receber', 'recebido', 'parcial']).optional(),
+  dataPrevista: z.string().optional(),
 
   // Cliente (autor)
   clientName: z.string().min(2, 'Informe o nome do cliente'),

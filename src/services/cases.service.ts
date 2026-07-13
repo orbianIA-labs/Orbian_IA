@@ -4,16 +4,27 @@ import type { CaseStatus, LegalArea, LegalCase } from '@/types/domain.types'
 
 type CasoResponse = {
   id: string
+  protocolo: number
   clienteId: string
   clienteNome: string
   numeroProcesso: string | null
   tribunal: string | null
   instancia: string | null
+  vara: string | null
+  comarca: string | null
+  uf: string | null
   areaJuridica: string | null
   categoria: string | null
   status: string
   tipoServico: string | null
   etapaAtual: string
+  prioridade: string
+  statusInicial: string | null
+  situacao: string | null
+  dataPrevista: string | null
+  rascunho: boolean
+  favorito: boolean
+  ultimoAcessoEm: string | null
   reuNome: string | null
   reuCpfCnpj: string | null
   reuAdvogado: string | null
@@ -30,10 +41,21 @@ type CasoResponse = {
 function mapCaso(c: CasoResponse): LegalCase {
   return {
     id: c.id,
+    protocolo: c.protocolo,
     title: c.clienteNome,
     caseNumber: c.numeroProcesso ?? undefined,
     tribunal: c.tribunal ?? '',
     instancia: c.instancia ?? undefined,
+    vara: c.vara ?? undefined,
+    comarca: c.comarca ?? undefined,
+    uf: c.uf ?? undefined,
+    prioridade: (c.prioridade ?? 'media') as LegalCase['prioridade'],
+    statusInicial: c.statusInicial ?? undefined,
+    situacao: c.situacao ?? undefined,
+    dataPrevista: c.dataPrevista ?? undefined,
+    rascunho: c.rascunho ?? false,
+    favorito: c.favorito ?? false,
+    ultimoAcessoEm: c.ultimoAcessoEm ?? undefined,
     clientName: c.clienteNome,
     clientPhone: '',
     clientEmail: '',
@@ -57,6 +79,7 @@ function mapCaso(c: CasoResponse): LegalCase {
     pending: c.pendente ?? 0,
     expectedProfit: c.honorarios ?? 0,
     recommendedDocuments: [],
+    createdAt: c.createdAt,
     updatedAt: c.updatedAt,
   }
 }
@@ -70,11 +93,20 @@ export type UpdateCasePatch = {
   numeroProcesso?: string | null
   tribunal?: string | null
   instancia?: string | null
+  vara?: string | null
+  comarca?: string | null
+  uf?: string | null
   areaJuridica?: string | null
   categoria?: string | null
   status?: CaseStatus
   tipoServico?: string | null
   etapaAtual?: string
+  prioridade?: string | null
+  statusInicial?: string | null
+  situacao?: string | null
+  dataPrevista?: string | null
+  rascunho?: boolean
+  favorito?: boolean
   reuNome?: string | null
   reuCpfCnpj?: string | null
   reuAdvogado?: string | null
@@ -96,7 +128,7 @@ export const casesService = {
     return mapCaso(data)
   },
 
-  async create(input: CreateCaseInput): Promise<LegalCase> {
+  async create(input: CreateCaseInput, opts: { rascunho?: boolean; favorito?: boolean } = {}): Promise<LegalCase> {
     const { data: cliente } = await api.post<{ id: string }>('/api/clientes', {
       nome: input.clientName,
       cpfCnpj: input.clientCpf || null,
@@ -109,9 +141,18 @@ export const casesService = {
       numeroProcesso: input.caseNumber || null,
       tribunal: input.tribunal || null,
       instancia: input.instancia || null,
+      vara: input.vara || null,
+      comarca: input.comarca || null,
+      uf: input.uf || null,
       areaJuridica: input.area,
       categoria: input.flow || null,
       tipoServico: input.tipoServico || null,
+      prioridade: input.prioridade || null,
+      statusInicial: input.statusInicial || null,
+      situacao: input.situacao || null,
+      dataPrevista: input.dataPrevista || null,
+      rascunho: opts.rascunho ?? false,
+      favorito: opts.favorito ?? false,
       reuNome: input.reuNome || null,
       reuCpfCnpj: input.reuCpfCnpj || null,
       reuAdvogado: input.reuAdvogado || null,

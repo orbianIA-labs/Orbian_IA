@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive, Calendar, CheckCircle2,
-  Download, FileText, Lock, Pencil, Play, Plus, ShieldCheck, Sparkles,
+  AlertTriangle, Archive, CheckCircle2, Circle,
+  Download, FileText, Link2, Lock, Pencil, Play, Plus, Rocket, ShieldCheck, Sparkles, Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { areaLabel, caseStatusLabel, caseStatusOptions, formatDate } from '@/lib/utils'
@@ -11,8 +11,23 @@ import { casesService, type UpdateCasePatch } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
 import { documentosService } from '@/services/documentos.service'
 import { toast } from '@/store/toastStore'
+import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/axios'
 import type { EtapaPipeline } from '@/types/domain.types'
+import { extrairSecaoHtml, MODULOS_PECA } from '@/lib/pecaSections'
+
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI']
+
+const STAGE_SUBTITLE: Record<EtapaPipeline, string> = {
+  cadastro: 'Preencha os dados essenciais do caso.',
+  documentos: 'Anexe os documentos que embasam a peça.',
+  pecas: 'Gere a peça jurídica com IA.',
+  prazos: 'Cadastre os prazos do processo.',
+  revisao: 'Valide a execução jurídica antes da conclusão.',
+  protocolo: '',
+  atualizacoes: '',
+  encerramento: 'Finalize e arquive a execução.',
+}
 
 interface PecaGerada {
   id: string; casoId: string; categoria: string; conteudo: string; versao: number; createdAt: string
@@ -40,6 +55,7 @@ export function CaseDetailPage() {
   const [mostrarSeletorTipo, setMostrarSeletorTipo] = useState(false)
   const [addingPrazo, setAddingPrazo] = useState(false)
   const [prazoForm, setPrazoForm] = useState({ titulo: '', dataVencimento: '' })
+  const user = useAuthStore((s) => s.user)
 
   const { data: legalCase, isLoading } = useQuery({
     queryKey: ['case', id],
@@ -66,6 +82,11 @@ export function CaseDetailPage() {
 
   const arquivar = useMutation({
     mutationFn: () => casesService.archive(id!),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
+  })
+
+  const reabrir = useMutation({
+    mutationFn: () => casesService.update(id!, { status: 'em_andamento' }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
   })
 
@@ -115,17 +136,44 @@ export function CaseDetailPage() {
 
   // Caso já criado ⇒ Cadastro conta como concluído; corrente começa em Documentos.
   const storedIdx = PIPELINE.findIndex((s) => s.key === legalCase?.etapaAtual)
-  const currentPipelineIdx = Math.max(1, storedIdx)
+
+  // A etapa salva só avança quando o usuário clica em "Avançar", mas o progresso real
+  // (documentos anexados, peça gerada...) pode já estar mais adiantado — segue o requisito
+  // real de cada etapa em vez de travar no valor salvo. "Encerramento" nunca é automático.
+  let derivedIdx = PIPELINE.length - 2 // Revisão: padrão quando tudo antes dela já foi cumprido
+  for (let i = 1; i < PIPELINE.length - 1; i++) {
+    if (!stageReq[PIPELINE[i].key].met) { derivedIdx = i; break }
+  }
+
+  const currentPipelineIdx = Math.max(1, storedIdx, derivedIdx)
   const currentStage = PIPELINE[currentPipelineIdx]
   const currentReq = stageReq[currentStage.key]
   const canAdvance = currentReq.met
   const nextStage = PIPELINE[currentPipelineIdx + 1] ?? null
 
+  // ── Arquivamento: chega por duas portas — o advogado arquivou manualmente,
+  // ou o caso já passou pelo Encerramento e todos os prazos já expiraram. ──
+  const todosPrazosExpirados = caseDeadlines.length > 0 && caseDeadlines.every((d) => new Date(d.dueDate) < new Date())
+  const arquivadoManualmente = legalCase?.status === 'arquivado'
+  const mostrarArquivamento = arquivadoManualmente || (currentStage.key === 'encerramento' && todosPrazosExpirados)
+  const tempoTotalDias = legalCase
+    ? Math.max(1, Math.round((new Date(legalCase.updatedAt).getTime() - new Date(legalCase.createdAt).getTime()) / 86400000))
+    : 0
+
   // ── Auditoria (tela de Revisão): só sinais reais, nada simulado ──
   const dadosFields = [legalCase?.caseNumber, legalCase?.tribunal, legalCase?.area, legalCase?.clientName]
   const dadosPreenchidosCount = dadosFields.filter(Boolean).length
   const dadosOk = dadosPreenchidosCount === dadosFields.length
-  const pendenciasCount = PIPELINE.filter((s) => !stageReq[s.key].met).length
+  const contextoInformado = Boolean(legalCase?.resumoFatos || legalCase?.pedidosProvidencias)
+
+  // ── Estrutura da peça principal (para a tela de Revisão) ──
+  const pecaRevisao = pecas[0]
+  const secoesPeca = pecaRevisao
+    ? MODULOS_PECA.map((m) => ({ ...m, html: extrairSecaoHtml(pecaRevisao.conteudo, m.termos) }))
+    : []
+  const secoesOkCount = secoesPeca.filter((s) => s.html !== null).length
+  const estruturaCompleta = pecaRevisao ? secoesOkCount === MODULOS_PECA.length : false
+  const secoesFaltando = secoesPeca.filter((s) => s.html === null).map((s) => s.nome)
 
   function startEdit() {
     if (!legalCase) return
@@ -139,6 +187,7 @@ export function CaseDetailPage() {
       valorCausa: legalCase.claimValue,
       honorarios: legalCase.fees,
       valorRecebido: legalCase.received,
+      favorito: legalCase.favorito,
     })
     setEditing(true)
   }
@@ -190,25 +239,28 @@ export function CaseDetailPage() {
           >
             <Sparkles size={16} /> Peças com IA
           </Button>
-          <Button onClick={() => navigate('/trabalho')} style={{ background: 'var(--grad-primary)' }}>
-            <Play size={15} fill="currentColor" /> Continuar execução
-          </Button>
         </div>
       </div>
 
-      {/* ── Pipeline (abas compactas) ── */}
+      {/* ── Pipeline (stepper numerado) ── */}
       <div className="workspace-pipeline">
-        <nav className="pipeline-tabs">
+        <div className="case-stage-head">
+          <h2>{currentStage.label} <span className="case-stage-badge">STAGE {currentPipelineIdx + 1}</span></h2>
+          {STAGE_SUBTITLE[currentStage.key] && <p>{STAGE_SUBTITLE[currentStage.key]}</p>}
+        </div>
+        <nav className="case-stepper">
           {PIPELINE.map((stage, idx) => {
             const done = idx < currentPipelineIdx
             const active = idx === currentPipelineIdx
             const locked = idx > currentPipelineIdx
-            const cls = ['pipeline-tab', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+            const cls = ['case-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
             return (
-              <span key={stage.key} className={cls}>
-                {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={11} /> : <span className="pipeline-tab-dot" />}
-                {stage.label}
-              </span>
+              <div key={stage.key} className={cls}>
+                <span className="case-step-dot">
+                  {done ? <CheckCircle2 size={14} /> : locked ? <Lock size={11} /> : idx + 1}
+                </span>
+                <span className="case-step-label">{stage.label}</span>
+              </div>
             )
           })}
         </nav>
@@ -257,6 +309,15 @@ export function CaseDetailPage() {
                 {caseStatusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
+            <label className="nc-favorito-toggle" style={{ fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={form.favorito ?? false}
+                onChange={(e) => setForm({ ...form, favorito: e.target.checked })}
+              />
+              <Star size={14} fill={form.favorito ? 'currentColor' : 'none'} />
+              Marcar como favorito
+            </label>
             <div className="button-row">
               <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>{salvar.isPending ? 'Salvando...' : 'Salvar'}</Button>
               <Button variant="secondary" onClick={() => setEditing(false)}>Cancelar</Button>
@@ -268,208 +329,227 @@ export function CaseDetailPage() {
       {/* ── Corpo do workspace ── */}
       <div className="workspace-body">
        {currentStage.key === 'revisao' ? (
-        <div className="review-layout">
+        <div className="review-layout-v2">
 
-          {/* RESUMO + ETAPAS CONCLUÍDAS */}
+          {/* RESUMO + CHECKLIST */}
           <div className="panel review-aside">
             <div className="review-status-tile">
               <span className="review-status-label">STATUS GERAL</span>
-              <strong>{[dadosOk, docCount > 0, hasPeca, caseDeadlines.length > 0].filter(Boolean).length}/4</strong>
-              <span className="review-status-sub">checagens OK</span>
+              <strong>{secoesOkCount}/{MODULOS_PECA.length}</strong>
+              <span className="review-status-sub">Blocos OK</span>
             </div>
 
-            <p className="section-label" style={{ margin: '18px 0 14px' }}>RESUMO DA EXECUÇÃO</p>
-            <dl className="definition-list" style={{ gap: 14 }}>
+            <dl className="definition-list" style={{ gap: 12, marginTop: 18 }}>
+              <div><dt>Documentos</dt><dd>{docCount} vinculado{docCount !== 1 ? 's' : ''}</dd></div>
+              <div><dt>Referência</dt><dd className="text-primary">ID #{legalCase.protocolo}</dd></div>
+            </dl>
+
+            <p className="section-label" style={{ margin: '20px 0 12px' }}>RESUMO DA EXECUÇÃO</p>
+            <dl className="definition-list" style={{ gap: 12 }}>
               <div><dt>Cliente</dt><dd>{legalCase.clientName}</dd></div>
-              {legalCase.reuNome && <div><dt>Parte Contrária</dt><dd>{legalCase.reuNome}</dd></div>}
               {legalCase.tribunal && <div><dt>Tribunal</dt><dd>{legalCase.tribunal}</dd></div>}
               <div><dt>Área</dt><dd>{areaLabel(legalCase.area)}</dd></div>
-              <div><dt>Valor da causa</dt><dd>R$ {(legalCase.claimValue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</dd></div>
               <div><dt>Atualizado</dt><dd>{formatDate(legalCase.updatedAt)}</dd></div>
             </dl>
 
             <p className="section-label" style={{ margin: '20px 0 12px' }}>CHECKLIST DE INTEGRIDADE</p>
             <ul className="review-timeline">
-              {PIPELINE.slice(0, currentPipelineIdx).map((stage) => (
-                <li key={stage.key}><CheckCircle2 size={14} /> {stage.label}</li>
-              ))}
+              <li className={dadosOk ? 'done' : ''}>{dadosOk ? <CheckCircle2 size={14} /> : <Circle size={14} />} Cadastro completo</li>
+              <li className={docCount > 0 ? 'done' : ''}>{docCount > 0 ? <CheckCircle2 size={14} /> : <Circle size={14} />} Documentos vinculados</li>
+              <li className={contextoInformado ? 'done' : ''}>{contextoInformado ? <CheckCircle2 size={14} /> : <Circle size={14} />} Contexto informado</li>
+              <li className={hasPeca ? 'done' : ''}>{hasPeca ? <CheckCircle2 size={14} /> : <Circle size={14} />} Peça construída</li>
+              <li><Circle size={14} /> Revisão concluída</li>
             </ul>
           </div>
 
-          {/* AUDITORIA */}
-          <div className="review-main">
-            <p className="section-label">AUDITORIA CENTRAL</p>
-            <div className="review-audit-grid">
-              <div className="review-audit-card">
-                <span className="review-audit-icon"><FileText size={16} /></span>
-                <div>
-                  <strong>Dados do Caso</strong>
-                  <span className="review-audit-status">{dadosPreenchidosCount}/{dadosFields.length} atributos preenchidos</span>
-                </div>
-                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }} onClick={startEdit}>Editar</Button>
-              </div>
-              <div className="review-audit-card">
-                <span className="review-audit-icon"><FileText size={16} /></span>
-                <div>
-                  <strong>Documentos</strong>
-                  <span className="review-audit-status">{docCount > 0 ? `${docCount} arquivo${docCount > 1 ? 's' : ''} anexado${docCount > 1 ? 's' : ''}` : 'Nenhum documento'}</span>
-                </div>
-                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => navigate(`/cases/${id}/documentos`)}>Ver</Button>
-              </div>
-              <div className="review-audit-card">
-                <span className="review-audit-icon"><Sparkles size={16} /></span>
-                <div>
-                  <strong>Peça Jurídica</strong>
-                  <span className="review-audit-status">{hasPeca ? `${pecas[0].categoria} · v${pecas[0].versao}` : 'Nenhuma peça gerada'}</span>
-                </div>
-                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => navigate(`/cases/${id}/pecas`)}>Ver</Button>
-              </div>
-              <div className="review-audit-card">
-                <span className="review-audit-icon"><Calendar size={16} /></span>
-                <div>
-                  <strong>Prazo de Protocolo</strong>
-                  <span className="review-audit-status">
-                    {proximoDeadline ? `${formatDate(proximoDeadline.dueDate)}${proximoDeadline.responsavel ? ` · ${proximoDeadline.responsavel}` : ''}` : 'Nenhum prazo cadastrado'}
+          {/* PRÉVIA DA PEÇA, SEÇÃO A SEÇÃO */}
+          <div className="review-doc-preview">
+            {pecaRevisao ? (
+              <>
+                <div className="review-doc-accent" />
+                <div className="review-doc-head">
+                  <span className="review-doc-label">{pecaRevisao.categoria.toUpperCase()}</span>
+                  <span className={`review-doc-tag ${estruturaCompleta ? 'ok' : 'warn'}`}>
+                    {estruturaCompleta ? 'Estrutura OK' : 'Pendências na estrutura'}
                   </span>
                 </div>
-              </div>
-            </div>
 
-            <p className="section-label" style={{ marginTop: 20 }}>AUDITORIA INTELIGENTE</p>
-            <div className="review-badge-row">
-              <span className={`review-check-badge ${dadosOk ? 'ok' : 'pending'}`}>
-                {dadosOk ? <CheckCircle2 size={13} /> : <Lock size={11} />} Dados consistentes
-              </span>
-              <span className={`review-check-badge ${docCount > 0 ? 'ok' : 'pending'}`}>
-                {docCount > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Documentos anexados
-              </span>
-              <span className={`review-check-badge ${hasPeca ? 'ok' : 'pending'}`}>
-                {hasPeca ? <CheckCircle2 size={13} /> : <Lock size={11} />} Peça gerada
-              </span>
-              <span className={`review-check-badge ${caseDeadlines.length > 0 ? 'ok' : 'pending'}`}>
-                {caseDeadlines.length > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Prazo cadastrado
-              </span>
-            </div>
+                {secoesPeca.map((secao, i) => (
+                  <div key={secao.nome} className={`review-section-block ${secao.html ? '' : 'attention'}`}>
+                    <div className="review-section-head">
+                      <strong>{ROMANOS[i]}. {secao.nome}</strong>
+                      <span className={`review-section-tag ${secao.html ? 'ok' : 'warn'}`}>
+                        {secao.html ? <><CheckCircle2 size={12} /> Revisado</> : <><AlertTriangle size={12} /> Necessita atenção</>}
+                      </span>
+                    </div>
+                    {secao.html ? (
+                      <div dangerouslySetInnerHTML={{ __html: secao.html }} />
+                    ) : (
+                      <p className="review-section-missing">Esta seção não foi identificada no texto gerado. Abra a peça e ajuste manualmente ou peça à IA para completá-la.</p>
+                    )}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="panel-empty">
+                <FileText size={26} />
+                <span>Nenhuma peça gerada para revisar ainda.</span>
+              </div>
+            )}
           </div>
 
           {/* ORBIAN INTELLIGENCE */}
-          <div className="panel review-ia-panel">
-            <div className="section-head">
-              <p className="section-label" style={{ margin: 0 }}>ORBIAN INTELLIGENCE</p>
-              <Sparkles size={15} className="text-primary" />
+          <div className="ia-panel orbian-intel review-intel">
+            <div className="ia-panel-head">
+              <span className="ia-panel-icon"><Sparkles size={16} /></span>
+              <strong>Orbian Intelligence</strong>
             </div>
-            <p className="review-ia-summary">
-              {docCount} documento{docCount !== 1 ? 's' : ''} anexado{docCount !== 1 ? 's' : ''}, {pecas.length} peça{pecas.length !== 1 ? 's' : ''} gerada{pecas.length !== 1 ? 's' : ''} e {caseDeadlines.length} prazo{caseDeadlines.length !== 1 ? 's' : ''} cadastrado{caseDeadlines.length !== 1 ? 's' : ''}.
-              {pendenciasCount > 0
-                ? ` ${pendenciasCount} etapa${pendenciasCount > 1 ? 's' : ''} do fluxo ainda com pendência.`
-                : ' Nenhuma pendência identificada no fluxo.'}
-            </p>
-            <div className="review-stat-grid">
-              <div className="review-stat"><strong>{docCount}</strong><span>Documentos</span></div>
-              <div className="review-stat"><strong>{pecas.length}</strong><span>Peças</span></div>
-              <div className="review-stat"><strong>{caseDeadlines.length}</strong><span>Prazos</span></div>
-              <div className="review-stat"><strong>{pendenciasCount}</strong><span>Pendências</span></div>
+
+            <p className="section-label" style={{ margin: '4px 0 10px', color: 'rgba(255,255,255,0.5)' }}>VALIDATION CHECKS</p>
+            <div className="intel-check">
+              <span className={`intel-check-icon ${estruturaCompleta ? 'ok' : 'warn'}`}>
+                {estruturaCompleta ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+              </span>
+              <div>
+                <strong>Estrutura Completa</strong>
+                <span>{estruturaCompleta ? 'Nenhum bloco obrigatório ausente' : `${secoesFaltando.length} bloco(s) ausente(s)`}</span>
+              </div>
             </div>
+            <div className="intel-check">
+              <span className={`intel-check-icon ${docCount > 0 ? 'ok' : 'warn'}`}><Link2 size={14} /></span>
+              <div>
+                <strong>Docs Vinculados</strong>
+                <span>{docCount > 0 ? `${docCount} documento${docCount !== 1 ? 's' : ''} anexado${docCount !== 1 ? 's' : ''}` : 'Nenhum documento anexado'}</span>
+              </div>
+            </div>
+
+            <p className="section-label" style={{ margin: '16px 0 10px', color: 'rgba(255,255,255,0.5)' }}>SMART ALERT</p>
+            {secoesFaltando.length > 0 ? (
+              <div className="intel-card intel-card-danger">
+                <span className="intel-card-label" style={{ color: '#ff8f7a' }}>ALERTA DE RISCO</span>
+                <p>{secoesFaltando.join(', ')} não {secoesFaltando.length > 1 ? 'foram identificadas' : 'foi identificada'} no texto gerado.</p>
+                <button className="intel-card-link" type="button" onClick={() => navigate(`/cases/${id}/pecas`)}>Resolver agora →</button>
+              </div>
+            ) : (
+              <div className="intel-card">
+                <span className="intel-card-label">TUDO CERTO</span>
+                <p>Nenhum alerta encontrado na estrutura da peça.</p>
+              </div>
+            )}
+
+            <p className="section-label" style={{ margin: '16px 0 10px', color: 'rgba(255,255,255,0.5)' }}>DICA DE REDAÇÃO</p>
+            <div className="intel-card">
+              <p>"Confira se a jurisprudência citada está vigente e se os valores batem com os anexos."</p>
+            </div>
+
+            {nextStage && (
+              <button
+                className="intel-suggestion review-finalize-btn"
+                type="button"
+                onClick={() => canAdvance && avancarEtapa.mutate(nextStage.key)}
+                disabled={!canAdvance || avancarEtapa.isPending}
+              >
+                <Rocket size={15} />
+                <span>{canAdvance ? `Avançar para ${nextStage.label}` : currentReq.hint}</span>
+              </button>
+            )}
           </div>
 
         </div>
-       ) : currentStage.key === 'encerramento' ? (
-        <div className="closing-layout">
-
-          {/* RESUMO + ETAPAS CONCLUÍDAS */}
-          <div className="panel closing-aside">
-            <p className="section-label" style={{ marginBottom: 14 }}>RESUMO DA EXECUÇÃO</p>
-            <dl className="definition-list" style={{ gap: 14 }}>
-              <div><dt>Cliente</dt><dd>{legalCase.clientName}</dd></div>
-              {legalCase.reuNome && <div><dt>Parte Contrária</dt><dd>{legalCase.reuNome}</dd></div>}
-              {legalCase.tribunal && <div><dt>Tribunal</dt><dd>{legalCase.tribunal}</dd></div>}
-              {hasPeca && <div><dt>Peça criada</dt><dd>{pecas[0].categoria}</dd></div>}
-              {proximoDeadline && <div><dt>Prazo</dt><dd>{formatDate(proximoDeadline.dueDate)}</dd></div>}
-              <div><dt>Atualizado</dt><dd>{formatDate(legalCase.updatedAt)}</dd></div>
-            </dl>
-
-            <p className="section-label" style={{ margin: '20px 0 12px' }}>ETAPAS CONCLUÍDAS</p>
-            <ul className="review-timeline">
-              {PIPELINE.slice(0, currentPipelineIdx).map((stage) => (
-                <li key={stage.key}><CheckCircle2 size={14} /> {stage.label}</li>
-              ))}
-            </ul>
+       ) : mostrarArquivamento ? (
+        <div className="closing-layout-v2">
+          <div className="closing-hero-v2">
+            <span className="closing-hero-icon"><Archive size={26} /></span>
+            <h2>Caso Arquivado</h2>
+            <p>
+              {arquivadoManualmente
+                ? 'Este caso foi arquivado manualmente pelo advogado responsável.'
+                : 'Este caso foi arquivado automaticamente: todos os prazos cadastrados já expiraram.'}
+            </p>
           </div>
 
-          {/* CONCLUSÃO */}
-          <div className="review-main">
-            <div className="closing-hero">
-              <span className="closing-hero-icon"><ShieldCheck size={28} /></span>
-              <h2>Execução finalizada</h2>
-              <p>O caso foi estruturado, validado e está pronto para acompanhamento operacional.</p>
-            </div>
+          <div className="closing-summary-grid">
+            <div className="closing-summary-card"><span>CASO</span><strong>{legalCase.title || legalCase.clientName}</strong></div>
+            <div className="closing-summary-card"><span>PROTOCOLO</span><strong>#{legalCase.protocolo}</strong></div>
+            <div className="closing-summary-card"><span>DOCUMENTOS</span><strong>{docCount}</strong></div>
+            <div className="closing-summary-card"><span>PEÇAS</span><strong>{pecas.length}</strong></div>
+          </div>
 
-            <div className="review-stat-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-              <div className="review-stat"><strong>{docCount}</strong><span>Documentos</span></div>
-              <div className="review-stat"><strong>{pecas.length}</strong><span>Peças</span></div>
-              <div className="review-stat"><strong>{caseDeadlines.length}</strong><span>Prazos</span></div>
-              <div className="review-stat"><strong>{pendenciasCount}</strong><span>Pendências</span></div>
-            </div>
-
-            <p className="section-label" style={{ marginTop: 20 }}>LINHA DE CONSOLIDAÇÃO</p>
-            <div className="review-badge-row">
-              <span className={`review-check-badge ${dadosOk ? 'ok' : 'pending'}`}>
-                {dadosOk ? <CheckCircle2 size={13} /> : <Lock size={11} />} Dados consistentes
-              </span>
-              <span className={`review-check-badge ${docCount > 0 ? 'ok' : 'pending'}`}>
-                {docCount > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Documentos anexados
-              </span>
-              <span className={`review-check-badge ${hasPeca ? 'ok' : 'pending'}`}>
-                {hasPeca ? <CheckCircle2 size={13} /> : <Lock size={11} />} Peça gerada
-              </span>
-              <span className={`review-check-badge ${caseDeadlines.length > 0 ? 'ok' : 'pending'}`}>
-                {caseDeadlines.length > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Prazo cadastrado
-              </span>
-            </div>
-
-            {hasPeca && (
-              <>
-                <p className="section-label" style={{ marginTop: 20 }}>REGISTRO DA EXECUÇÃO</p>
-                <div className="closing-record-table">
-                  <div className="closing-record-head">
-                    <span>Artefato</span>
-                    <span>Última modificação</span>
-                    <span>Ações</span>
-                  </div>
-                  {pecas.map((p) => (
-                    <div key={p.id} className="closing-record-row">
-                      <span className="closing-record-name"><FileText size={14} /> {p.categoria} <span className="muted">v{p.versao}</span></span>
-                      <span className="muted">{formatDate(p.createdAt)}</span>
-                      <span className="closing-record-actions">
-                        <button onClick={() => navigate(`/cases/${id}/pecas`)}>Visualizar</button>
-                        <button onClick={() => exportarWord(p)}>Exportar</button>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <Button onClick={() => navigate('/cases')} style={{ marginTop: 20, alignSelf: 'flex-start' }}>
-              Ir para Casos <Play size={13} fill="currentColor" />
+          <div className="closing-actions-row">
+            <Button variant="secondary" onClick={() => reabrir.mutate()} disabled={reabrir.isPending}>
+              {reabrir.isPending ? 'Reabrindo...' : 'Reabrir caso'}
             </Button>
+            <Button onClick={() => navigate('/cases')}>Voltar para Casos <Play size={13} fill="currentColor" /></Button>
+          </div>
+        </div>
+       ) : currentStage.key === 'encerramento' ? (
+        <div className="closing-layout-v2">
+          <p className="section-label" style={{ marginBottom: 12 }}>RESUMO DA OPERAÇÃO</p>
+          <div className="closing-summary-grid">
+            <div className="closing-summary-card"><span>CASO</span><strong>{legalCase.title || legalCase.clientName}</strong></div>
+            <div className="closing-summary-card"><span>TIPO</span><strong>{pecas[0]?.categoria ?? legalCase.tipoServico ?? '—'}</strong></div>
+            <div className="closing-summary-card"><span>TEMPO TOTAL</span><strong>{tempoTotalDias} dia{tempoTotalDias !== 1 ? 's' : ''}</strong></div>
+            <div className="closing-summary-card"><span>RESPONSÁVEL</span><strong>{user?.name?.split(' ')[0] ?? '—'}</strong></div>
           </div>
 
-          {/* ORBIAN INTELLIGENCE */}
-          <div className="panel review-ia-panel closing-ia-panel">
-            <div className="section-head">
-              <p className="section-label" style={{ margin: 0, color: 'inherit' }}>ORBIAN INTELLIGENCE</p>
-              <Sparkles size={15} />
+          <p className="section-label" style={{ margin: '24px 0 12px' }}>RESULTADO DA EXECUÇÃO</p>
+          <div className="closing-result-grid">
+            <div className="closing-result-card">
+              <span className="closing-result-icon"><FileText size={16} /></span>
+              <span>Peça jurídica criada</span>
+              <span className={`closing-result-check ${hasPeca ? 'ok' : ''}`}>{hasPeca ? <CheckCircle2 size={16} /> : <Circle size={16} />}</span>
             </div>
-            <p className="closing-ia-title">Síntese da Operação</p>
-            <ul className="closing-ia-list">
-              <li><Sparkles size={14} /> Execução concluída com {docCount} documento{docCount !== 1 ? 's' : ''} vinculado{docCount !== 1 ? 's' : ''}.</li>
-              <li><CheckCircle2 size={14} /> {hasPeca ? 'A peça foi criada e está disponível para exportação.' : 'Nenhuma peça foi gerada nesta execução.'}</li>
-              <li><FileText size={14} /> O histórico desta operação foi preservado.</li>
-              <li><Sparkles size={14} /> Esta execução pode ser utilizada como referência futura.</li>
-            </ul>
+            <div className="closing-result-card">
+              <span className="closing-result-icon"><FileText size={16} /></span>
+              <span>Documentos organizados</span>
+              <span className={`closing-result-check ${docCount > 0 ? 'ok' : ''}`}>{docCount > 0 ? <CheckCircle2 size={16} /> : <Circle size={16} />}</span>
+            </div>
+            <div className="closing-result-card">
+              <span className="closing-result-icon"><ShieldCheck size={16} /></span>
+              <span>Revisão concluída</span>
+              <span className="closing-result-check ok"><CheckCircle2 size={16} /></span>
+            </div>
+            <div className="closing-result-card">
+              <span className="closing-result-icon"><Sparkles size={16} /></span>
+              <span>Histórico salvo</span>
+              <span className="closing-result-check ok"><CheckCircle2 size={16} /></span>
+            </div>
           </div>
 
+          <p className="section-label" style={{ margin: '24px 0 12px' }}>REGISTRO DA EXECUÇÃO</p>
+          <div className="closing-record-table">
+            <div className="closing-record-head">
+              <span>Artefato</span>
+              <span>Última modificação</span>
+              <span>Ações</span>
+            </div>
+            {pecas.map((p) => (
+              <div key={p.id} className="closing-record-row">
+                <span className="closing-record-name"><FileText size={14} /> {p.categoria} <span className="muted">v{p.versao}</span></span>
+                <span className="muted">{formatDate(p.createdAt)}</span>
+                <span className="closing-record-actions">
+                  <button onClick={() => navigate(`/cases/${id}/pecas`)}>Visualizar</button>
+                  <button onClick={() => exportarWord(p)}>Exportar</button>
+                </span>
+              </div>
+            ))}
+            {docCount > 0 && (
+              <div className="closing-record-row">
+                <span className="closing-record-name"><FileText size={14} /> Documentos anexados <span className="muted">{docCount} arquivo{docCount !== 1 ? 's' : ''}</span></span>
+                <span className="muted">{formatDate(legalCase.updatedAt)}</span>
+                <span className="closing-record-actions">
+                  <button onClick={() => navigate(`/cases/${id}/documentos`)}>Visualizar</button>
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="closing-actions-row">
+            <Button variant="secondary" onClick={() => arquivar.mutate()} disabled={arquivar.isPending}>
+              <Archive size={14} /> {arquivar.isPending ? 'Arquivando...' : 'Arquivar caso'}
+            </Button>
+            <Button onClick={() => navigate('/cases')}>Voltar para Casos <Play size={13} fill="currentColor" /></Button>
+          </div>
         </div>
        ) : (<>
         {/* ── Coluna principal ── */}
@@ -521,13 +601,9 @@ export function CaseDetailPage() {
                     <span className={`badge ${proximoDeadline.priority === 'critical' ? 'badge-critical' : proximoDeadline.priority === 'attention' ? 'badge-attention' : 'badge-normal'}`}>
                       {proximoDeadline.priority === 'critical' ? 'Urgente' : proximoDeadline.priority === 'attention' ? 'Atenção' : 'Normal'}
                     </span>
-                    {canAdvance && nextStage ? (
+                    {canAdvance && nextStage && (
                       <Button onClick={() => avancarEtapa.mutate(nextStage.key)} disabled={avancarEtapa.isPending}>
                         <Play size={13} fill="currentColor" /> Avançar para {nextStage.label}
-                      </Button>
-                    ) : (
-                      <Button onClick={() => navigate('/trabalho')}>
-                        <Play size={13} fill="currentColor" /> Executar
                       </Button>
                     )}
                   </div>
