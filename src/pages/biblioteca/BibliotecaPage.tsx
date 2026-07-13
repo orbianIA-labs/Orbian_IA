@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Pencil, Plus, Sparkles } from 'lucide-react'
+import { BookOpen, FileText, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { areaLabel } from '@/lib/utils'
 import api from '@/lib/axios'
@@ -18,115 +18,124 @@ interface Template {
 const AREA_FILTROS = ['Todos', 'civil', 'trabalhista', 'tributario', 'penal', 'familia', 'consumidor'] as const
 type AreaFiltro = (typeof AREA_FILTROS)[number]
 
+function formatDate(iso?: string) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('pt-BR')
+}
+
 export function BibliotecaPage() {
   const [areaFilter, setAreaFilter] = useState<AreaFiltro>('Todos')
-  const [categoriaFilter, setCategoriaFilter] = useState('')
 
   const { data: templates = [], isLoading } = useQuery<Template[]>({
     queryKey: ['templates-all'],
     queryFn: () => api.get('/api/templates').then((r) => r.data),
   })
 
-  const CATEGORIAS = ['Contestação', 'Petição Inicial', 'Réplica', 'Manifestação', 'Embargos', 'Agravo', 'Apelação', 'Recurso', 'Mandado']
+  const displayed = templates.filter((t) => areaFilter === 'Todos' || t.area === areaFilter)
 
-  const displayed = templates.filter((t) => {
-    if (areaFilter !== 'Todos' && t.area !== areaFilter) return false
-    if (categoriaFilter && t.categoria !== categoriaFilter) return false
-    return true
-  })
+  const porCategoria = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const t of templates) counts.set(t.categoria, (counts.get(t.categoria) ?? 0) + 1)
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+  }, [templates])
 
-  function formatDate(iso?: string) {
-    if (!iso) return '—'
-    return new Date(iso).toLocaleDateString('pt-BR')
-  }
+  const maxCategoria = Math.max(1, ...porCategoria.map(([, n]) => n))
 
   return (
-    <div className="page-stack">
-      <section className="page-heading compact">
+    <div className="biblioteca-page">
+      <div className="biblioteca-page-header">
         <div>
-          <p className="eyebrow">Configurações</p>
-          <h1>Biblioteca de Peças</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Modelos de referência para geração com IA</p>
+          <h1>Biblioteca</h1>
+          <p>Modelos de referência que aceleram a geração de peças com IA.</p>
         </div>
         <Button>
           <Plus size={16} /> Nova peça base
         </Button>
-      </section>
-
-      <div className="biblioteca-filters">
-        <div className="filter-tabs" style={{ flex: 1 }}>
-          {AREA_FILTROS.map((a) => (
-            <button
-              key={a}
-              className={`filter-tab ${areaFilter === a ? 'active' : ''}`}
-              onClick={() => setAreaFilter(a)}
-            >
-              {a === 'Todos' ? 'Todos' : areaLabel(a)}
-            </button>
-          ))}
-        </div>
-        <select
-          value={categoriaFilter}
-          onChange={(e) => setCategoriaFilter(e.target.value)}
-          style={{ fontSize: 13, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', color: 'var(--ink)' }}
-        >
-          <option value="">Todas as categorias</option>
-          {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
       </div>
 
-      {isLoading && <p style={{ color: 'var(--muted)', padding: '1rem' }}>Carregando modelos...</p>}
-
-      {!isLoading && displayed.length === 0 && (
-        <div className="empty-state">
-          <BookOpen size={40} style={{ opacity: 0.3 }} />
-          <h3>Nenhum modelo encontrado</h3>
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Crie modelos de referência para acelerar a geração de peças.</p>
-          <Button>
-            <Plus size={15} /> Nova peça base
-          </Button>
+      <div className="biblioteca-stat-row">
+        <div className="prazos-stat">
+          <span>MODELOS JURÍDICOS</span>
+          <strong>{templates.length}</strong>
         </div>
-      )}
+        <div className="prazos-stat">
+          <span>ÁREAS COBERTAS</span>
+          <strong>{new Set(templates.map((t) => t.area).filter(Boolean)).size}</strong>
+        </div>
+        <div className="prazos-stat">
+          <span>ATUALIZADOS (30D)</span>
+          <strong>{templates.filter((t) => t.updatedAt && Date.now() - new Date(t.updatedAt).getTime() < 30 * 86400000).length}</strong>
+        </div>
+      </div>
 
-      {displayed.length > 0 && (
-        <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="biblioteca-table-header">
-            <span>Nome</span>
-            <span>Área</span>
-            <span>Versão</span>
-            <span>Atualizado</span>
-            <span />
-          </div>
+      <nav className="pill-tabs">
+        {AREA_FILTROS.map((a) => (
+          <button key={a} className={areaFilter === a ? 'active' : ''} onClick={() => setAreaFilter(a)}>
+            {a === 'Todos' ? 'Todos' : areaLabel(a)}
+          </button>
+        ))}
+      </nav>
+
+      <div className="biblioteca-body">
+        <div className="biblioteca-cards">
+          {isLoading && <p style={{ color: 'var(--muted)', padding: '1rem' }}>Carregando modelos...</p>}
+
+          {!isLoading && displayed.length === 0 && (
+            <div className="empty-state">
+              <BookOpen size={40} style={{ opacity: 0.3 }} />
+              <h3>Nenhum modelo encontrado</h3>
+              <p style={{ color: 'var(--muted)', fontSize: 14 }}>Crie modelos de referência para acelerar a geração de peças.</p>
+              <Button>
+                <Plus size={15} /> Nova peça base
+              </Button>
+            </div>
+          )}
+
           {displayed.map((t) => (
-            <div key={t.id} className="biblioteca-row">
-              <div className="biblioteca-row-name">
-                <Sparkles size={15} style={{ color: 'var(--c-primary)', flexShrink: 0 }} />
-                <div>
-                  <strong>{t.titulo}</strong>
+            <div key={t.id} className="biblioteca-card">
+              <span className="biblioteca-card-icon"><FileText size={18} /></span>
+              <div className="biblioteca-card-body">
+                <strong>{t.titulo}</strong>
+                <div className="biblioteca-card-meta">
                   <span>{t.categoria}</span>
+                  <span>·</span>
+                  <span>Atualizado {formatDate(t.updatedAt)}</span>
+                  <span>·</span>
+                  <span>v{t.versao ?? 1}</span>
+                </div>
+                <div className="biblioteca-card-tags">
+                  {t.area && <span className="biblioteca-area-chip">{areaLabel(t.area)}</span>}
+                  {t.tags?.slice(0, 3).map((tag) => (
+                    <span key={tag} className="tag">{tag}</span>
+                  ))}
                 </div>
               </div>
-              <span className="biblioteca-row-area">
-                {t.area ? areaLabel(t.area) : '—'}
-              </span>
-              <span className="biblioteca-row-version">v{t.versao ?? 1}</span>
-              <span className="biblioteca-row-date">{formatDate(t.updatedAt)}</span>
-              <div className="biblioteca-row-actions">
-                {t.tags?.length > 0 && (
-                  <div className="tag-list">
-                    {t.tags.slice(0, 2).map((tag) => (
-                      <span key={tag} className="tag">{tag}</span>
-                    ))}
-                  </div>
-                )}
-                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }}>
-                  <Pencil size={13} /> Editar
-                </Button>
-              </div>
+              <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px', flexShrink: 0 }}>
+                <Pencil size={13} /> Editar
+              </Button>
             </div>
           ))}
         </div>
-      )}
+
+        <aside className="panel biblioteca-side">
+          <p className="section-label" style={{ marginBottom: 14 }}>MODELOS POR CATEGORIA</p>
+          {porCategoria.length === 0 ? (
+            <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>Nenhum modelo cadastrado ainda.</p>
+          ) : (
+            <div className="biblioteca-cat-bars">
+              {porCategoria.map(([cat, count]) => (
+                <div key={cat} className="biblioteca-cat-bar-row">
+                  <span className="biblioteca-cat-label">{cat}</span>
+                  <div className="biblioteca-cat-track">
+                    <div className="biblioteca-cat-fill" style={{ width: `${(count / maxCategoria) * 100}%` }} />
+                  </div>
+                  <span className="biblioteca-cat-count">{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }

@@ -1,212 +1,170 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { AlertTriangle, CheckCircle2, Plus, Search } from 'lucide-react'
 import { deadlinesService } from '@/services/deadlines.service'
 import { casesService } from '@/services/cases.service'
-import type { Deadline } from '@/types/domain.types'
+import { formatDate } from '@/lib/utils'
+import type { Deadline, EtapaPipeline } from '@/types/domain.types'
 
-type View = 'hoje' | 'semana' | 'mes'
+type Tab = 'todos' | 'hoje' | 'criticos'
 
-const DAYS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-const MONTHS_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const STAGE_ORDER: { key: EtapaPipeline; label: string }[] = [
+  { key: 'cadastro', label: 'Cadastro' },
+  { key: 'documentos', label: 'Documentos' },
+  { key: 'pecas', label: 'Gerar Peças' },
+  { key: 'prazos', label: 'Prazos' },
+  { key: 'revisao', label: 'Revisão' },
+  { key: 'encerramento', label: 'Encerramento' },
+]
 
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
+  cadastro: 'Completar cadastro',
+  documentos: 'Anexar documentos',
+  pecas: 'Gerar peça',
+  prazos: 'Cadastrar prazo',
+  revisao: 'Revisar execução',
+  protocolo: 'Revisar execução',
+  atualizacoes: 'Revisar execução',
+  encerramento: 'Finalizar caso',
+}
+
+function stageIndex(etapa: EtapaPipeline) {
+  const idx = STAGE_ORDER.findIndex((s) => s.key === etapa)
+  if (idx >= 0) return idx
+  return etapa === 'protocolo' || etapa === 'atualizacoes' ? 4 : 0
+}
+
+function isToday(dateStr: string) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  return d.getTime() === today.getTime()
+}
+
+function isThisWeek(dateStr: string) {
+  const days = Math.floor((new Date(dateStr).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000)
+  return days >= 0 && days <= 7
 }
 
 export function AgendaPage() {
-  const [view, setView] = useState<View>('hoje')
-  const [refDate, setRefDate] = useState(new Date())
+  const [tab, setTab] = useState<Tab>('todos')
+  const [search, setSearch] = useState('')
 
   const { data: deadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })
   const { data: cases = [] } = useQuery({ queryKey: ['cases'], queryFn: () => casesService.list() })
 
   const pending = deadlines.filter((d) => !d.completed)
+  const criticos = pending.filter((d) => d.priority === 'critical').length
+  const hoje = pending.filter((d) => isToday(d.dueDate)).length
+  const semana = pending.filter((d) => isThisWeek(d.dueDate)).length
+  const concluidos = deadlines.filter((d) => d.completed).length
 
-  function deadlinesForDay(day: Date): Deadline[] {
-    return pending.filter((d) => isSameDay(new Date(d.dueDate), day))
+  const rows = useMemo(() => {
+    let list = [...deadlines].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    if (tab === 'hoje') list = list.filter((d) => !d.completed && isToday(d.dueDate))
+    if (tab === 'criticos') list = list.filter((d) => !d.completed && d.priority === 'critical')
+    const q = search.trim().toLowerCase()
+    if (q) {
+      list = list.filter((d) =>
+        d.title.toLowerCase().includes(q) || d.caseTitle.toLowerCase().includes(q),
+      )
+    }
+    return list
+  }, [deadlines, tab, search])
+
+  function statusFor(d: Deadline) {
+    if (d.completed) return { label: 'CONCLUÍDO', cls: 'status-done' }
+    if (d.priority === 'critical') return { label: 'CRÍTICO', cls: 'status-critical' }
+    if (isToday(d.dueDate)) return { label: 'HOJE', cls: 'status-today' }
+    if (isThisWeek(d.dueDate)) return { label: 'SEMANA', cls: 'status-week' }
+    return { label: 'NORMAL', cls: 'status-normal' }
   }
-
-  function prevPeriod() {
-    const d = new Date(refDate)
-    if (view === 'hoje') d.setDate(d.getDate() - 1)
-    else if (view === 'semana') d.setDate(d.getDate() - 7)
-    else d.setMonth(d.getMonth() - 1)
-    setRefDate(d)
-  }
-
-  function nextPeriod() {
-    const d = new Date(refDate)
-    if (view === 'hoje') d.setDate(d.getDate() + 1)
-    else if (view === 'semana') d.setDate(d.getDate() + 7)
-    else d.setMonth(d.getMonth() + 1)
-    setRefDate(d)
-  }
-
-  function goToday() { setRefDate(new Date()) }
-
-  // Week start (Monday)
-  function weekStart(d: Date) {
-    const day = d.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const start = new Date(d)
-    start.setDate(d.getDate() + diff)
-    start.setHours(0, 0, 0, 0)
-    return start
-  }
-
-  const wStart = weekStart(refDate)
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(wStart)
-    d.setDate(wStart.getDate() + i)
-    return d
-  })
-
-  // Month grid
-  const monthStart = new Date(refDate.getFullYear(), refDate.getMonth(), 1)
-  const monthEnd = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0)
-  const gridStart = new Date(monthStart)
-  const dayOfWeek = monthStart.getDay()
-  gridStart.setDate(monthStart.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
-  const gridDays: Date[] = []
-  const cur = new Date(gridStart)
-  while (cur <= monthEnd || gridDays.length % 7 !== 0) {
-    gridDays.push(new Date(cur))
-    cur.setDate(cur.getDate() + 1)
-    if (gridDays.length > 42) break
-  }
-
-  const today = new Date()
 
   return (
-    <div className="page-stack">
-      <section className="page-heading">
+    <div className="prazos-page">
+      <div className="prazos-page-header">
         <div>
-          <p className="eyebrow">Orbian Agenda</p>
-          <h1>Agenda</h1>
-          <p>Seus prazos e execuções organizados por data</p>
+          <h1>Prazos</h1>
+          <p>Toda a execução jurídica organizada por prioridade operacional.</p>
         </div>
-        <Link to="/cases/new">
-          <Button>Novo caso</Button>
-        </Link>
-      </section>
-
-      <div className="agenda-toolbar">
-        <div className="segmented">
-          {(['hoje', 'semana', 'mes'] as View[]).map((v) => (
-            <button key={v} className={view === v ? 'active' : ''} onClick={() => setView(v)}>
-              {v.charAt(0).toUpperCase() + v.slice(1)}
+        <label className="cases-search" style={{ maxWidth: 260 }}>
+          <Search size={14} />
+          <input type="text" placeholder="Pesquisar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        <nav className="pill-tabs">
+          {(['todos', 'hoje', 'criticos'] as Tab[]).map((t) => (
+            <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
+              {t === 'todos' ? 'Todos' : t === 'hoje' ? 'Hoje' : 'Críticos'}
             </button>
           ))}
-        </div>
+        </nav>
+      </div>
 
-        <div className="agenda-nav">
-          <button className="icon-btn" onClick={prevPeriod}><ChevronLeft size={18} /></button>
-          <button className="agenda-today-btn" onClick={goToday}>Hoje</button>
-          <button className="icon-btn" onClick={nextPeriod}><ChevronRight size={18} /></button>
-          <span className="agenda-period-label">
-            {view === 'mes'
-              ? `${MONTHS_PT[refDate.getMonth()]} ${refDate.getFullYear()}`
-              : view === 'semana'
-              ? `${wStart.getDate()} – ${weekDays[6].getDate()} ${MONTHS_PT[weekDays[6].getMonth()]}`
-              : refDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
-          </span>
+      <div className="prazos-stat-row">
+        <div className="prazos-stat">
+          <span>EXECUÇÕES CRÍTICAS</span>
+          <strong className="danger">{criticos}</strong>
+        </div>
+        <div className="prazos-stat">
+          <span>HOJE</span>
+          <strong>{hoje}</strong>
+        </div>
+        <div className="prazos-stat">
+          <span>ESTA SEMANA</span>
+          <strong>{semana}</strong>
+        </div>
+        <div className="prazos-stat">
+          <span>CONCLUÍDOS</span>
+          <strong className="success">{concluidos}</strong>
         </div>
       </div>
 
-      {view === 'hoje' && (
-        <div className="panel">
-          <div className="panel-title">
-            <h2>
-              <CalendarDays size={17} style={{ display: 'inline', marginRight: 6, verticalAlign: -3 }} />
-              {refDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
-            </h2>
-          </div>
-          {deadlinesForDay(refDate).length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: 14, padding: '8px 0' }}>Nenhum prazo para este dia.</p>
-          ) : (
-            <div className="agenda-day-list">
-              {deadlinesForDay(refDate).map((d) => {
-                const c = cases.find((x) => x.id === d.caseId)
-                return (
-                  <Link key={d.id} to={`/cases/${d.caseId}`} className="agenda-event">
-                    <div className={`agenda-event-dot ${d.priority}`} />
-                    <div className="agenda-event-body">
-                      <strong>{d.title}</strong>
-                      <span>{c?.clientName ?? '—'}</span>
-                    </div>
-                    <span className={`badge badge-${d.priority === 'critical' ? 'critical' : d.priority === 'attention' ? 'attention' : 'normal'}`}>
-                      {d.priority === 'critical' ? 'Urgente' : d.priority === 'attention' ? 'Atenção' : 'Normal'}
-                    </span>
-                  </Link>
-                )
-              })}
+      <div className="prazos-table">
+        <div className="prazos-table-head">
+          <span>Caso / Fluxo de Execução</span>
+          <span>Fase</span>
+          <span>Prazo Limite</span>
+          <span>Próxima Ação</span>
+          <span>Responsável</span>
+          <span>Status</span>
+        </div>
+        <div className="prazos-table-body">
+          {rows.length === 0 && (
+            <div className="panel-empty">
+              <CheckCircle2 size={26} />
+              <span>Nenhum prazo encontrado.</span>
             </div>
           )}
-        </div>
-      )}
-
-      {view === 'semana' && (
-        <div className="semana-grid">
-          {weekDays.map((day) => {
-            const dayDeadlines = deadlinesForDay(day)
-            const isToday = isSameDay(day, today)
+          {rows.map((d) => {
+            const c = cases.find((x) => x.id === d.caseId)
+            const idx = c ? stageIndex(c.etapaAtual) : 0
+            const acao = c ? PROXIMA_ACAO[c.etapaAtual] ?? PROXIMA_ACAO.cadastro : '—'
+            const status = statusFor(d)
+            const overdue = !d.completed && new Date(d.dueDate) < new Date(new Date().setHours(0, 0, 0, 0))
             return (
-              <div key={day.toISOString()} className={`semana-col ${isToday ? 'semana-col-today' : ''}`}>
-                <div className="semana-col-header">
-                  <span className="semana-weekday">{DAYS_PT[day.getDay()]}</span>
-                  <span className={`semana-day-num ${isToday ? 'today' : ''}`}>{day.getDate()}</span>
+              <Link key={d.id} to={`/cases/${d.caseId}`} className="prazos-table-row">
+                <div className="prazos-case-cell">
+                  <strong>{c?.title || d.caseTitle}</strong>
+                  <div className="case-card-stepper" style={{ marginTop: 6, borderBottom: 'none', paddingBottom: 0 }}>
+                    {STAGE_ORDER.map((stage, i) => (
+                      <div key={stage.key} className={`cc-step ${i < idx ? 'done' : ''} ${i === idx ? 'active' : ''}`} title={stage.label}>
+                        <span className="cc-step-dot" style={{ width: 8, height: 8 }} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="semana-events">
-                  {dayDeadlines.length === 0
-                    ? <span className="semana-empty">—</span>
-                    : dayDeadlines.map((d) => (
-                        <Link key={d.id} to={`/cases/${d.caseId}`} className={`semana-event ${d.priority}`}>
-                          {d.title}
-                        </Link>
-                      ))
-                  }
-                </div>
-              </div>
+                <span className="muted">{d.title}</span>
+                <span className={overdue ? 'prazos-deadline overdue' : 'prazos-deadline'}>
+                  {overdue && <AlertTriangle size={13} />} {d.completed ? 'Concluído' : formatDate(d.dueDate)}
+                </span>
+                <span className="muted">{acao}</span>
+                <span className="muted">{d.responsavel || '—'}</span>
+                <span className={`prazos-status-badge ${status.cls}`}>{status.label}</span>
+              </Link>
             )
           })}
         </div>
-      )}
-
-      {view === 'mes' && (
-        <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="mes-grid-header">
-            {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => (
-              <div key={d} className="mes-weekday">{d}</div>
-            ))}
-          </div>
-          <div className="mes-grid">
-            {gridDays.map((day) => {
-              const isCurrentMonth = day.getMonth() === refDate.getMonth()
-              const isToday = isSameDay(day, today)
-              const dayDeadlines = deadlinesForDay(day)
-              return (
-                <div
-                  key={day.toISOString()}
-                  className={`mes-cell ${!isCurrentMonth ? 'mes-cell-outside' : ''} ${isToday ? 'mes-cell-today' : ''}`}
-                >
-                  <span className="mes-cell-num">{day.getDate()}</span>
-                  {dayDeadlines.slice(0, 2).map((d) => (
-                    <Link key={d.id} to={`/cases/${d.caseId}`} className={`mes-event ${d.priority}`}>
-                      {d.title}
-                    </Link>
-                  ))}
-                  {dayDeadlines.length > 2 && (
-                    <span className="mes-more">+{dayDeadlines.length - 2} mais</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

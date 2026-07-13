@@ -5,14 +5,12 @@ import {
   Home,
   Plus,
   Settings,
-  Zap,
 } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { OrbianLogo } from '@/components/brand/OrbianLogo'
 
 const navItems = [
   { to: '/', label: 'Início', icon: Home },
-  { to: '/trabalho', label: 'Trabalho', icon: Zap },
   { to: '/cases', label: 'Casos', icon: FolderKanban },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/biblioteca', label: 'Biblioteca', icon: BookOpen },

@@ -2,14 +2,13 @@ import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive, CheckCircle2,
-  Download, FileText, Lock, Pencil, Play, Plus, RefreshCw, Sparkles,
+  Archive, Calendar, CheckCircle2,
+  Download, FileText, Lock, Pencil, Play, Plus, ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { areaLabel, caseStatusLabel, caseStatusOptions, formatDate } from '@/lib/utils'
 import { casesService, type UpdateCasePatch } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
-import { monitoringService } from '@/services/monitoring.service'
 import { documentosService } from '@/services/documentos.service'
 import { toast } from '@/store/toastStore'
 import api from '@/lib/axios'
@@ -22,10 +21,10 @@ interface PecaGerada {
 const PIPELINE: { key: EtapaPipeline; label: string }[] = [
   { key: 'cadastro',     label: 'Cadastro' },
   { key: 'documentos',   label: 'Documentos' },
-  { key: 'pecas',        label: 'Peças' },
+  { key: 'pecas',        label: 'Gerar Peças' },
+  { key: 'prazos',       label: 'Prazos' },
   { key: 'revisao',      label: 'Revisão' },
-  { key: 'protocolo',    label: 'Protocolo' },
-  { key: 'encerramento', label: 'Encerramento' },
+  { key: 'encerramento', label: 'Finalização' },
 ]
 
 const DOC_TIPOS = ['Petição Inicial', 'Procuração', 'Contrato', 'Documentos pessoais', 'Comprovantes', 'Conversas', 'Outros anexos']
@@ -36,10 +35,11 @@ export function CaseDetailPage() {
   const qc = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<UpdateCasePatch>({})
-  const [updateMsg, setUpdateMsg] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadTipoRef = useRef('')
   const [mostrarSeletorTipo, setMostrarSeletorTipo] = useState(false)
+  const [addingPrazo, setAddingPrazo] = useState(false)
+  const [prazoForm, setPrazoForm] = useState({ titulo: '', dataVencimento: '' })
 
   const { data: legalCase, isLoading } = useQuery({
     queryKey: ['case', id],
@@ -51,11 +51,6 @@ export function CaseDetailPage() {
   const { data: pecas = [] } = useQuery<PecaGerada[]>({
     queryKey: ['pecas', id],
     queryFn: () => api.get(`/api/casos/${id}/pecas`).then((r) => r.data),
-    enabled: !!id,
-  })
-  const { data: movimentacoes = [] } = useQuery({
-    queryKey: ['movimentacoes', id],
-    queryFn: () => monitoringService.list(id!),
     enabled: !!id,
   })
   const { data: documentos = [] } = useQuery({
@@ -75,8 +70,9 @@ export function CaseDetailPage() {
   })
 
   const avancarEtapa = useMutation({
-    mutationFn: (etapa: EtapaPipeline) => casesService.update(id!, { etapaAtual: etapa }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['case', id] }),
+    mutationFn: (etapa: EtapaPipeline) =>
+      casesService.update(id!, etapa === 'encerramento' ? { etapaAtual: etapa, status: 'finalizado' } : { etapaAtual: etapa }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
   })
 
   const uploadDoc = useMutation({
@@ -84,18 +80,12 @@ export function CaseDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documentos', id] }),
   })
 
-  const atualizarProcesso = useMutation({
-    mutationFn: () => monitoringService.atualizar(id!),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['movimentacoes', id] })
-      qc.invalidateQueries({ queryKey: ['movimentacoes-recentes'] })
-      setUpdateMsg(res.novasMovimentacoes > 0
-        ? `${res.novasMovimentacoes} nova(s) movimentação(ões) via ${res.provedor}.`
-        : `Nenhuma movimentação nova (${res.provedor}).`)
-    },
-    onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Erro ao atualizar.'
-      setUpdateMsg(msg)
+  const criarPrazo = useMutation({
+    mutationFn: () => deadlinesService.create({ casoId: id!, titulo: prazoForm.titulo.trim(), dataVencimento: prazoForm.dataVencimento }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deadlines'] })
+      setAddingPrazo(false)
+      setPrazoForm({ titulo: '', dataVencimento: '' })
     },
   })
 
@@ -115,6 +105,8 @@ export function CaseDetailPage() {
     cadastro:     { met: true, hint: '' },
     documentos:   { met: docCount >= 1, hint: 'Adicione pelo menos 1 documento para liberar as Peças.' },
     pecas:        { met: hasPeca, hint: 'Gere pelo menos 1 peça para avançar.' },
+    // Prazos ↔ Agenda: só avança com pelo menos 1 prazo cadastrado para o caso.
+    prazos:       { met: caseDeadlines.length > 0, hint: 'Cadastre um prazo (Agenda) para avançar.' },
     revisao:      { met: hasPeca, hint: 'É preciso ter uma peça para revisar.' },
     protocolo:    { met: true, hint: '' },
     atualizacoes: { met: true, hint: '' },
@@ -128,6 +120,12 @@ export function CaseDetailPage() {
   const currentReq = stageReq[currentStage.key]
   const canAdvance = currentReq.met
   const nextStage = PIPELINE[currentPipelineIdx + 1] ?? null
+
+  // ── Auditoria (tela de Revisão): só sinais reais, nada simulado ──
+  const dadosFields = [legalCase?.caseNumber, legalCase?.tribunal, legalCase?.area, legalCase?.clientName]
+  const dadosPreenchidosCount = dadosFields.filter(Boolean).length
+  const dadosOk = dadosPreenchidosCount === dadosFields.length
+  const pendenciasCount = PIPELINE.filter((s) => !stageReq[s.key].met).length
 
   function startEdit() {
     if (!legalCase) return
@@ -198,28 +196,22 @@ export function CaseDetailPage() {
         </div>
       </div>
 
-      {/* ── Pipeline ── */}
+      {/* ── Pipeline (abas compactas) ── */}
       <div className="workspace-pipeline">
-        <div className="case-pipeline">
+        <nav className="pipeline-tabs">
           {PIPELINE.map((stage, idx) => {
             const done = idx < currentPipelineIdx
             const active = idx === currentPipelineIdx
             const locked = idx > currentPipelineIdx
-            const dotCls = ['pipeline-dot', done && 'pipeline-dot-done', active && 'pipeline-dot-active', locked && 'pipeline-dot-locked'].filter(Boolean).join(' ')
-            const stepCls = ['pipeline-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+            const cls = ['pipeline-tab', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
             return (
-              <div key={stage.key} style={{ display: 'contents' }}>
-                <div className={stepCls}>
-                  <div className={dotCls}>
-                    {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={11} /> : idx + 1}
-                  </div>
-                  <span>{stage.label}</span>
-                </div>
-                {idx < PIPELINE.length - 1 && <div className={`pipeline-arrow ${done ? 'done' : ''}`} />}
-              </div>
+              <span key={stage.key} className={cls}>
+                {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={11} /> : <span className="pipeline-tab-dot" />}
+                {stage.label}
+              </span>
             )
           })}
-        </div>
+        </nav>
         {nextStage && (
           <div className="pipeline-advance">
             <button
@@ -275,13 +267,247 @@ export function CaseDetailPage() {
 
       {/* ── Corpo do workspace ── */}
       <div className="workspace-body">
+       {currentStage.key === 'revisao' ? (
+        <div className="review-layout">
 
+          {/* RESUMO + ETAPAS CONCLUÍDAS */}
+          <div className="panel review-aside">
+            <div className="review-status-tile">
+              <span className="review-status-label">STATUS GERAL</span>
+              <strong>{[dadosOk, docCount > 0, hasPeca, caseDeadlines.length > 0].filter(Boolean).length}/4</strong>
+              <span className="review-status-sub">checagens OK</span>
+            </div>
+
+            <p className="section-label" style={{ margin: '18px 0 14px' }}>RESUMO DA EXECUÇÃO</p>
+            <dl className="definition-list" style={{ gap: 14 }}>
+              <div><dt>Cliente</dt><dd>{legalCase.clientName}</dd></div>
+              {legalCase.reuNome && <div><dt>Parte Contrária</dt><dd>{legalCase.reuNome}</dd></div>}
+              {legalCase.tribunal && <div><dt>Tribunal</dt><dd>{legalCase.tribunal}</dd></div>}
+              <div><dt>Área</dt><dd>{areaLabel(legalCase.area)}</dd></div>
+              <div><dt>Valor da causa</dt><dd>R$ {(legalCase.claimValue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</dd></div>
+              <div><dt>Atualizado</dt><dd>{formatDate(legalCase.updatedAt)}</dd></div>
+            </dl>
+
+            <p className="section-label" style={{ margin: '20px 0 12px' }}>CHECKLIST DE INTEGRIDADE</p>
+            <ul className="review-timeline">
+              {PIPELINE.slice(0, currentPipelineIdx).map((stage) => (
+                <li key={stage.key}><CheckCircle2 size={14} /> {stage.label}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* AUDITORIA */}
+          <div className="review-main">
+            <p className="section-label">AUDITORIA CENTRAL</p>
+            <div className="review-audit-grid">
+              <div className="review-audit-card">
+                <span className="review-audit-icon"><FileText size={16} /></span>
+                <div>
+                  <strong>Dados do Caso</strong>
+                  <span className="review-audit-status">{dadosPreenchidosCount}/{dadosFields.length} atributos preenchidos</span>
+                </div>
+                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }} onClick={startEdit}>Editar</Button>
+              </div>
+              <div className="review-audit-card">
+                <span className="review-audit-icon"><FileText size={16} /></span>
+                <div>
+                  <strong>Documentos</strong>
+                  <span className="review-audit-status">{docCount > 0 ? `${docCount} arquivo${docCount > 1 ? 's' : ''} anexado${docCount > 1 ? 's' : ''}` : 'Nenhum documento'}</span>
+                </div>
+                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => navigate(`/cases/${id}/documentos`)}>Ver</Button>
+              </div>
+              <div className="review-audit-card">
+                <span className="review-audit-icon"><Sparkles size={16} /></span>
+                <div>
+                  <strong>Peça Jurídica</strong>
+                  <span className="review-audit-status">{hasPeca ? `${pecas[0].categoria} · v${pecas[0].versao}` : 'Nenhuma peça gerada'}</span>
+                </div>
+                <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => navigate(`/cases/${id}/pecas`)}>Ver</Button>
+              </div>
+              <div className="review-audit-card">
+                <span className="review-audit-icon"><Calendar size={16} /></span>
+                <div>
+                  <strong>Prazo de Protocolo</strong>
+                  <span className="review-audit-status">
+                    {proximoDeadline ? `${formatDate(proximoDeadline.dueDate)}${proximoDeadline.responsavel ? ` · ${proximoDeadline.responsavel}` : ''}` : 'Nenhum prazo cadastrado'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="section-label" style={{ marginTop: 20 }}>AUDITORIA INTELIGENTE</p>
+            <div className="review-badge-row">
+              <span className={`review-check-badge ${dadosOk ? 'ok' : 'pending'}`}>
+                {dadosOk ? <CheckCircle2 size={13} /> : <Lock size={11} />} Dados consistentes
+              </span>
+              <span className={`review-check-badge ${docCount > 0 ? 'ok' : 'pending'}`}>
+                {docCount > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Documentos anexados
+              </span>
+              <span className={`review-check-badge ${hasPeca ? 'ok' : 'pending'}`}>
+                {hasPeca ? <CheckCircle2 size={13} /> : <Lock size={11} />} Peça gerada
+              </span>
+              <span className={`review-check-badge ${caseDeadlines.length > 0 ? 'ok' : 'pending'}`}>
+                {caseDeadlines.length > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Prazo cadastrado
+              </span>
+            </div>
+          </div>
+
+          {/* ORBIAN INTELLIGENCE */}
+          <div className="panel review-ia-panel">
+            <div className="section-head">
+              <p className="section-label" style={{ margin: 0 }}>ORBIAN INTELLIGENCE</p>
+              <Sparkles size={15} className="text-primary" />
+            </div>
+            <p className="review-ia-summary">
+              {docCount} documento{docCount !== 1 ? 's' : ''} anexado{docCount !== 1 ? 's' : ''}, {pecas.length} peça{pecas.length !== 1 ? 's' : ''} gerada{pecas.length !== 1 ? 's' : ''} e {caseDeadlines.length} prazo{caseDeadlines.length !== 1 ? 's' : ''} cadastrado{caseDeadlines.length !== 1 ? 's' : ''}.
+              {pendenciasCount > 0
+                ? ` ${pendenciasCount} etapa${pendenciasCount > 1 ? 's' : ''} do fluxo ainda com pendência.`
+                : ' Nenhuma pendência identificada no fluxo.'}
+            </p>
+            <div className="review-stat-grid">
+              <div className="review-stat"><strong>{docCount}</strong><span>Documentos</span></div>
+              <div className="review-stat"><strong>{pecas.length}</strong><span>Peças</span></div>
+              <div className="review-stat"><strong>{caseDeadlines.length}</strong><span>Prazos</span></div>
+              <div className="review-stat"><strong>{pendenciasCount}</strong><span>Pendências</span></div>
+            </div>
+          </div>
+
+        </div>
+       ) : currentStage.key === 'encerramento' ? (
+        <div className="closing-layout">
+
+          {/* RESUMO + ETAPAS CONCLUÍDAS */}
+          <div className="panel closing-aside">
+            <p className="section-label" style={{ marginBottom: 14 }}>RESUMO DA EXECUÇÃO</p>
+            <dl className="definition-list" style={{ gap: 14 }}>
+              <div><dt>Cliente</dt><dd>{legalCase.clientName}</dd></div>
+              {legalCase.reuNome && <div><dt>Parte Contrária</dt><dd>{legalCase.reuNome}</dd></div>}
+              {legalCase.tribunal && <div><dt>Tribunal</dt><dd>{legalCase.tribunal}</dd></div>}
+              {hasPeca && <div><dt>Peça criada</dt><dd>{pecas[0].categoria}</dd></div>}
+              {proximoDeadline && <div><dt>Prazo</dt><dd>{formatDate(proximoDeadline.dueDate)}</dd></div>}
+              <div><dt>Atualizado</dt><dd>{formatDate(legalCase.updatedAt)}</dd></div>
+            </dl>
+
+            <p className="section-label" style={{ margin: '20px 0 12px' }}>ETAPAS CONCLUÍDAS</p>
+            <ul className="review-timeline">
+              {PIPELINE.slice(0, currentPipelineIdx).map((stage) => (
+                <li key={stage.key}><CheckCircle2 size={14} /> {stage.label}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* CONCLUSÃO */}
+          <div className="review-main">
+            <div className="closing-hero">
+              <span className="closing-hero-icon"><ShieldCheck size={28} /></span>
+              <h2>Execução finalizada</h2>
+              <p>O caso foi estruturado, validado e está pronto para acompanhamento operacional.</p>
+            </div>
+
+            <div className="review-stat-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+              <div className="review-stat"><strong>{docCount}</strong><span>Documentos</span></div>
+              <div className="review-stat"><strong>{pecas.length}</strong><span>Peças</span></div>
+              <div className="review-stat"><strong>{caseDeadlines.length}</strong><span>Prazos</span></div>
+              <div className="review-stat"><strong>{pendenciasCount}</strong><span>Pendências</span></div>
+            </div>
+
+            <p className="section-label" style={{ marginTop: 20 }}>LINHA DE CONSOLIDAÇÃO</p>
+            <div className="review-badge-row">
+              <span className={`review-check-badge ${dadosOk ? 'ok' : 'pending'}`}>
+                {dadosOk ? <CheckCircle2 size={13} /> : <Lock size={11} />} Dados consistentes
+              </span>
+              <span className={`review-check-badge ${docCount > 0 ? 'ok' : 'pending'}`}>
+                {docCount > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Documentos anexados
+              </span>
+              <span className={`review-check-badge ${hasPeca ? 'ok' : 'pending'}`}>
+                {hasPeca ? <CheckCircle2 size={13} /> : <Lock size={11} />} Peça gerada
+              </span>
+              <span className={`review-check-badge ${caseDeadlines.length > 0 ? 'ok' : 'pending'}`}>
+                {caseDeadlines.length > 0 ? <CheckCircle2 size={13} /> : <Lock size={11} />} Prazo cadastrado
+              </span>
+            </div>
+
+            {hasPeca && (
+              <>
+                <p className="section-label" style={{ marginTop: 20 }}>REGISTRO DA EXECUÇÃO</p>
+                <div className="closing-record-table">
+                  <div className="closing-record-head">
+                    <span>Artefato</span>
+                    <span>Última modificação</span>
+                    <span>Ações</span>
+                  </div>
+                  {pecas.map((p) => (
+                    <div key={p.id} className="closing-record-row">
+                      <span className="closing-record-name"><FileText size={14} /> {p.categoria} <span className="muted">v{p.versao}</span></span>
+                      <span className="muted">{formatDate(p.createdAt)}</span>
+                      <span className="closing-record-actions">
+                        <button onClick={() => navigate(`/cases/${id}/pecas`)}>Visualizar</button>
+                        <button onClick={() => exportarWord(p)}>Exportar</button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <Button onClick={() => navigate('/cases')} style={{ marginTop: 20, alignSelf: 'flex-start' }}>
+              Ir para Casos <Play size={13} fill="currentColor" />
+            </Button>
+          </div>
+
+          {/* ORBIAN INTELLIGENCE */}
+          <div className="panel review-ia-panel closing-ia-panel">
+            <div className="section-head">
+              <p className="section-label" style={{ margin: 0, color: 'inherit' }}>ORBIAN INTELLIGENCE</p>
+              <Sparkles size={15} />
+            </div>
+            <p className="closing-ia-title">Síntese da Operação</p>
+            <ul className="closing-ia-list">
+              <li><Sparkles size={14} /> Execução concluída com {docCount} documento{docCount !== 1 ? 's' : ''} vinculado{docCount !== 1 ? 's' : ''}.</li>
+              <li><CheckCircle2 size={14} /> {hasPeca ? 'A peça foi criada e está disponível para exportação.' : 'Nenhuma peça foi gerada nesta execução.'}</li>
+              <li><FileText size={14} /> O histórico desta operação foi preservado.</li>
+              <li><Sparkles size={14} /> Esta execução pode ser utilizada como referência futura.</li>
+            </ul>
+          </div>
+
+        </div>
+       ) : (<>
         {/* ── Coluna principal ── */}
         <div className="workspace-main">
 
           {/* PRÓXIMA EXECUÇÃO */}
           <div className="ws-section">
-            <p className="section-label">PRÓXIMA EXECUÇÃO</p>
+            <div className="ws-section-header">
+              <p className="section-label">PRÓXIMA EXECUÇÃO</p>
+              <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }}
+                onClick={() => setAddingPrazo((v) => !v)}>
+                <Plus size={13} /> Adicionar prazo
+              </Button>
+            </div>
+
+            {addingPrazo && (
+              <div className="panel" style={{ padding: 16, marginBottom: 12 }}>
+                <div className="form-stack">
+                  <label>Título
+                    <input type="text" value={prazoForm.titulo}
+                      onChange={(e) => setPrazoForm((f) => ({ ...f, titulo: e.target.value }))}
+                      placeholder="Ex: Contestação, Audiência..." />
+                  </label>
+                  <label>Data de vencimento
+                    <input type="date" value={prazoForm.dataVencimento}
+                      onChange={(e) => setPrazoForm((f) => ({ ...f, dataVencimento: e.target.value }))} />
+                  </label>
+                  <div className="button-row">
+                    <Button onClick={() => criarPrazo.mutate()}
+                      disabled={!prazoForm.titulo.trim() || !prazoForm.dataVencimento || criarPrazo.isPending}>
+                      {criarPrazo.isPending ? 'Salvando...' : 'Salvar prazo'}
+                    </Button>
+                    <Button variant="secondary" onClick={() => setAddingPrazo(false)}>Cancelar</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {proximoDeadline ? (
               <div className="ws-exec-card">
                 <div className="ws-exec-card-inner">
@@ -295,17 +521,23 @@ export function CaseDetailPage() {
                     <span className={`badge ${proximoDeadline.priority === 'critical' ? 'badge-critical' : proximoDeadline.priority === 'attention' ? 'badge-attention' : 'badge-normal'}`}>
                       {proximoDeadline.priority === 'critical' ? 'Urgente' : proximoDeadline.priority === 'attention' ? 'Atenção' : 'Normal'}
                     </span>
-                    <Button onClick={() => navigate('/trabalho')}>
-                      <Play size={13} fill="currentColor" /> Executar
-                    </Button>
+                    {canAdvance && nextStage ? (
+                      <Button onClick={() => avancarEtapa.mutate(nextStage.key)} disabled={avancarEtapa.isPending}>
+                        <Play size={13} fill="currentColor" /> Avançar para {nextStage.label}
+                      </Button>
+                    ) : (
+                      <Button onClick={() => navigate('/trabalho')}>
+                        <Play size={13} fill="currentColor" /> Executar
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : !addingPrazo ? (
               <div className="panel" style={{ padding: '20px 24px', textAlign: 'center' }}>
                 <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhum prazo pendente para este caso.</p>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* DOCUMENTOS */}
@@ -338,17 +570,9 @@ export function CaseDetailPage() {
               </div>
             )}
 
-            <div className="doc-types-grid">
-              {DOC_TIPOS.map((tipo) => {
-                const count = documentos.filter((d) => d.tipo === tipo).length
-                return (
-                  <div key={tipo} className="doc-type-card" onClick={() => abrirUpload(tipo)}>
-                    <strong>{tipo}</strong>
-                    <span className="doc-type-count">{count > 0 ? `${count} arquivo${count > 1 ? 's' : ''}` : '0'}</span>
-                  </div>
-                )
-              })}
-            </div>
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+              {docCount > 0 ? `${docCount} documento${docCount > 1 ? 's' : ''} anexado${docCount > 1 ? 's' : ''}.` : 'Nenhum documento anexado ainda.'}
+            </p>
 
             {uploadDoc.isPending && (
               <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Enviando documento...</p>
@@ -395,30 +619,6 @@ export function CaseDetailPage() {
             )}
           </div>
 
-          {/* ATUALIZAÇÕES */}
-          <div className="ws-section">
-            <div className="ws-section-header">
-              <p className="section-label">ATUALIZAÇÕES PROCESSUAIS</p>
-              <Button variant="secondary" style={{ fontSize: 12, padding: '5px 12px' }}
-                onClick={() => atualizarProcesso.mutate()} disabled={atualizarProcesso.isPending}>
-                <RefreshCw size={13} className={atualizarProcesso.isPending ? 'spin' : ''} />
-                {atualizarProcesso.isPending ? 'Consultando...' : 'Atualizar'}
-              </Button>
-            </div>
-            {updateMsg && <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>{updateMsg}</p>}
-            {movimentacoes.length === 0 ? (
-              <p style={{ color: 'var(--muted)', fontSize: 14 }}>Clique em "Atualizar" para consultar movimentações.</p>
-            ) : (
-              <ol className="timeline">
-                {movimentacoes.map((mov) => (
-                  <li className="timeline-item" key={mov.id}>
-                    <time>{formatDate(mov.date)}</time>
-                    <p>{mov.description}</p>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
         </div>
 
         {/* ── Aside ── */}
@@ -490,6 +690,7 @@ export function CaseDetailPage() {
           </div>
 
         </div>
+       </>)}
       </div>
     </div>
   )

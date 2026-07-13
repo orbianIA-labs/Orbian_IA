@@ -1,17 +1,14 @@
 import {
   ArrowRight,
   CheckCircle2,
-  Circle,
   Clock,
   FileText,
-  Flame,
   Folder,
-  Gauge,
+  FolderKanban,
   MoreVertical,
   Play,
   Scale,
   Sparkles,
-  Target,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -24,12 +21,22 @@ import type { CaseStatus, Deadline, EtapaPipeline } from '@/types/domain.types'
 const ETAPA_LABEL: Record<EtapaPipeline, string> = {
   cadastro: 'Cadastro',
   documentos: 'Documentos',
-  pecas: 'Peças',
+  pecas: 'Gerar Peças',
+  prazos: 'Prazos',
   revisao: 'Revisão',
   protocolo: 'Protocolo',
   atualizacoes: 'Atualizações',
-  encerramento: 'Encerramento',
+  encerramento: 'Finalização',
 }
+
+const MISSION_PIPELINE: { key: EtapaPipeline; label: string }[] = [
+  { key: 'cadastro', label: 'Cadastro' },
+  { key: 'documentos', label: 'Documentos' },
+  { key: 'pecas', label: 'Peça' },
+  { key: 'prazos', label: 'Prazo' },
+  { key: 'revisao', label: 'Revisão' },
+  { key: 'encerramento', label: 'Encerramento' },
+]
 
 const STATUS_TAG: Record<CaseStatus, { label: string; cls: string }> = {
   em_andamento: { label: 'Ativo', cls: 'tag-active' },
@@ -134,7 +141,6 @@ export function DashboardPage() {
 
   // Progresso da missão a partir das etapas
   const etapasDone = etapas.filter((e) => e.concluida).length
-  const activeIdx = etapas.findIndex((e) => !e.concluida)
   const progressoStr = etapas.length > 0 ? `${etapasDone} de ${etapas.length}` : `${caso?.progress ?? 0}%`
   const restantes = etapas.length > 0 ? etapas.length - etapasDone : 0
   const tempoEst = etapas.length > 0 ? `${8 + restantes * 6} min` : '—'
@@ -143,15 +149,22 @@ export function DashboardPage() {
   const docsRecebidos = caso?.recommendedDocuments.filter((d) => d.received).length ?? 0
   const docsPendentes = caso?.recommendedDocuments.filter((d) => !d.received).length ?? 0
 
+  // Estatísticas reais para os tiles do Command Center
+  const casosAtivos = cases.filter((c) => c.status !== 'arquivado' && c.status !== 'finalizado').length
+  const casosConcluidos = cases.filter((c) => c.status === 'finalizado').length
+  const prazosUrgentes = pending.filter((d) => d.priority === 'critical').length
+
+  const missionStageIdx = caso ? Math.max(0, MISSION_PIPELINE.findIndex((s) => s.key === caso.etapaAtual)) : 0
+
   return (
     <div className="home">
       {/* ── Cabeçalho: saudação + progresso ── */}
       <header className="home-header">
         <div>
-          <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}</h1>
+          <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}.</h1>
           <p>
-            Hoje você possui <strong>{total} execuç{total === 1 ? 'ão' : 'ões'}</strong>.{' '}
-            {concluidas} já {concluidas === 1 ? 'foi concluída' : 'foram concluídas'}.
+            Sua operação jurídica está <strong>{pct}% organizada</strong> hoje.{' '}
+            {total} execuç{total === 1 ? 'ão' : 'ões'}, {concluidas} já {concluidas === 1 ? 'concluída' : 'concluídas'}.
           </p>
         </div>
         <div className="home-progress">
@@ -165,148 +178,48 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {execucao && caso ? (
-        <>
-          {/* ── MISSÃO DO MOMENTO ── */}
-          <section className="mission-card">
-            <div className="mission-main">
-              <div className="mission-top">
-                <span className="mission-pill">
-                  <Flame size={13} /> MISSÃO DO MOMENTO
-                </span>
-                <span className="mission-id">ID: #EXEC-{caso.id.slice(0, 4).toUpperCase()}</span>
-              </div>
-
-              <h2 className="mission-title">{execucao.title}</h2>
-              <p className="mission-sub">{caso.title || caso.clientName}</p>
-
-              <div className="mission-metrics">
-                <div className="mission-metric">
-                  <span className="metric-label"><Clock size={12} /> DEADLINE</span>
-                  <strong className="metric-danger">{missionDeadline(execucao.dueDate)}</strong>
+      <div className="cc-body">
+       <div className="cc-main">
+        {execucao && caso ? (
+          <>
+            {/* ── EXECUÇÃO EM MOVIMENTO ── */}
+            <section className="mission-card">
+              <div className="mission-main">
+                <div className="mission-top">
+                  <span className="mission-pill">
+                    <Sparkles size={13} /> EXECUÇÃO EM MOVIMENTO
+                  </span>
+                  <span className="mission-id">ID: #EXEC-{caso.id.slice(0, 4).toUpperCase()}</span>
                 </div>
-                <div className="mission-metric">
-                  <span className="metric-label"><Gauge size={12} /> TEMPO EST.</span>
-                  <strong>{tempoEst}</strong>
-                </div>
-                <div className="mission-metric">
-                  <span className="metric-label"><Target size={12} /> PROGRESSO</span>
-                  <strong>{progressoStr}</strong>
-                </div>
-              </div>
 
-              <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
-                <Play size={15} fill="currentColor" />
-                Continuar Execução
-              </button>
-            </div>
-
-            {/* Dependency checklist */}
-            <aside className="mission-checklist">
-              <p className="checklist-title">DEPENDENCY CHECKLIST</p>
-              {etapas.length > 0 ? (
-                <ul>
-                  {etapas.map((et, i) => {
-                    const state = et.concluida ? 'done' : i === activeIdx ? 'active' : 'pending'
+                <nav className="cc-stepper">
+                  {MISSION_PIPELINE.map((stage, idx) => {
+                    const done = idx < missionStageIdx
+                    const active = idx === missionStageIdx
                     return (
-                      <li key={et.id} className={`check-item ${state}`}>
-                        {state === 'done' ? (
-                          <CheckCircle2 size={16} className="check-icon" />
-                        ) : state === 'active' ? (
-                          <span className="check-radio" />
-                        ) : (
-                          <Circle size={16} className="check-icon" />
-                        )}
-                        <span>{et.titulo}</span>
-                      </li>
+                      <div key={stage.key} className={`cc-step ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
+                        <span className="cc-step-dot">{done ? <CheckCircle2 size={16} /> : idx + 1}</span>
+                        <span className="cc-step-label">{stage.label}</span>
+                      </div>
                     )
                   })}
-                </ul>
-              ) : (
-                <ul>
-                  {caso.recommendedDocuments.slice(0, 6).map((doc, i) => (
-                    <li key={i} className={`check-item ${doc.received ? 'done' : 'pending'}`}>
-                      {doc.received ? (
-                        <CheckCircle2 size={16} className="check-icon" />
-                      ) : (
-                        <Circle size={16} className="check-icon" />
-                      )}
-                      <span>{doc.name}</span>
-                    </li>
-                  ))}
-                  {caso.recommendedDocuments.length === 0 && (
-                    <li className="check-item pending"><Circle size={16} className="check-icon" /><span>Sem etapas cadastradas</span></li>
-                  )}
-                </ul>
-              )}
-            </aside>
-          </section>
+                </nav>
 
-          {/* ── Banda inferior: próximas execuções + painel IA ── */}
-          <div className="home-lower">
-            <div className="home-lower-main">
-              <div className="section-head">
-                <h3 className="section-title">Próximas Execuções</h3>
-                <Link to="/trabalho" className="section-link">Ver todas</Link>
-              </div>
-
-              {proximas.length > 0 ? (
-                <div className="next-list">
-                  {proximas.map((d, i) => {
-                    const c = cases.find((x) => x.id === d.caseId)
-                    const { Icon, bg, color } = ROW_ICONS[i % ROW_ICONS.length]
-                    const prio = PRIORITY_TAG[d.priority]
-                    return (
-                      <Link key={d.id} to={`/cases/${d.caseId}`} className="next-row">
-                        <span className="next-icon" style={{ background: bg, color }}>
-                          <Icon size={18} />
-                        </span>
-                        <div className="next-info">
-                          <strong>{d.title}</strong>
-                          <span>{c?.clientName ?? c?.title ?? '—'}</span>
-                        </div>
-                        <div className="next-deadline">
-                          <span className="next-deadline-label">DEADLINE</span>
-                          <time>{listDeadline(d.dueDate)}</time>
-                        </div>
-                        <span className={`prio-badge ${prio.cls}`}>{prio.label}</span>
-                        <MoreVertical size={16} className="next-more" />
-                      </Link>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="panel-empty">Nenhuma outra execução na fila.</div>
-              )}
-            </div>
-
-            {/* Painel IA Assistente */}
-            <aside className="ia-panel">
-              <div className="ia-panel-head">
-                <span className="ia-panel-icon"><Sparkles size={16} /></span>
-                <strong>IA Assistente</strong>
-              </div>
-              <div className="ia-stats">
-                <div className="ia-stat">
-                  <span>Docs analisados</span>
-                  <strong>{docsRecebidos}</strong>
-                </div>
-                <div className="ia-stat">
-                  <span>Documentos pendentes</span>
-                  <strong>{docsPendentes}</strong>
+                <div className="mission-bottom">
+                  <div>
+                    <h2 className="mission-title">{caso.title || caso.clientName}</h2>
+                    <p className="mission-sub">{caso.caseNumber ?? execucao.title} · {missionDeadline(execucao.dueDate)}</p>
+                  </div>
+                  <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
+                    <Play size={15} fill="currentColor" />
+                    Continuar execução
+                  </button>
                 </div>
               </div>
-              <p className="ia-ready">
-                <span className="ia-ready-dot" />
-                {docsPendentes === 0 ? 'PRONTA PARA GERAR A PEÇA.' : 'AGUARDANDO DOCUMENTOS.'}
-              </p>
-              <button className="ia-cta" onClick={() => navigate(`/cases/${caso.id}/pecas`)}>
-                Consultar IA
-              </button>
-            </aside>
-          </div>
-        </>
-      ) : (
+            </section>
+
+          </>
+        ) : (
         <div className="panel mission-empty">
           <Sparkles size={30} style={{ color: 'var(--c-primary)' }} />
           <p>Nenhuma execução pendente. Tudo em dia por aqui.</p>
@@ -316,34 +229,136 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ── Casos Recentes ── */}
-      {cases.length > 0 && (
-        <section className="recent-section">
+        {/* ── Próximas Execuções ── */}
+        <div className="home-body-col">
           <div className="section-head">
-            <h3 className="section-title">Casos Recentes</h3>
+            <div className="section-head-left">
+              <span className="section-icon"><Clock size={13} /></span>
+              <h3 className="section-title">Próximas Execuções</h3>
+            </div>
+            <Link to="/agenda" className="section-link">Ver todas</Link>
+          </div>
+
+          {proximas.length > 0 ? (
+            <div className="next-list">
+              {proximas.map((d, i) => {
+                const c = cases.find((x) => x.id === d.caseId)
+                const { Icon, bg, color } = ROW_ICONS[i % ROW_ICONS.length]
+                const prio = PRIORITY_TAG[d.priority]
+                return (
+                  <Link key={d.id} to={`/cases/${d.caseId}`} className="next-row">
+                    <span className="next-icon" style={{ background: bg, color }}>
+                      <Icon size={18} />
+                    </span>
+                    <div className="next-info">
+                      <strong>{d.title}</strong>
+                      <span>{c?.clientName ?? c?.title ?? '—'}</span>
+                    </div>
+                    <div className="next-deadline">
+                      <span className="next-deadline-label">DEADLINE</span>
+                      <time>{listDeadline(d.dueDate)}</time>
+                    </div>
+                    <span className={`prio-badge ${prio.cls}`}>{prio.label}</span>
+                    <MoreVertical size={16} className="next-more" />
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="panel-empty">
+              <Clock size={26} />
+              <span>Nenhuma outra execução na fila.</span>
+            </div>
+          )}
+        </div>
+       </div>
+
+       {/* ── Aside: estatísticas reais + Casos Recentes + IA Assistente ── */}
+       <aside className="cc-aside">
+        <div className="cc-stat-grid">
+          <div className="cc-stat-tile">
+            <span className="cc-stat-label"><FolderKanban size={13} /> CASOS ATIVOS</span>
+            <strong>{casosAtivos}</strong>
+          </div>
+          <div className="cc-stat-tile">
+            <span className="cc-stat-label"><CheckCircle2 size={13} /> CONCLUÍDOS</span>
+            <strong>{casosConcluidos}</strong>
+          </div>
+          <div className="cc-stat-tile">
+            <span className="cc-stat-label"><Clock size={13} /> PRAZOS</span>
+            <strong>{pending.length}</strong>
+            {prazosUrgentes > 0 && <span className="cc-stat-flag">{prazosUrgentes} urgente{prazosUrgentes > 1 ? 's' : ''}</span>}
+          </div>
+          <div className="cc-stat-tile">
+            <span className="cc-stat-label"><FileText size={13} /> DOCUMENTOS</span>
+            <strong>{docsRecebidos}</strong>
+          </div>
+        </div>
+
+        <div className="home-body-col">
+          <div className="section-head">
+            <div className="section-head-left">
+              <span className="section-icon"><Folder size={13} /></span>
+              <h3 className="section-title">Casos Recentes</h3>
+            </div>
             {cases.length > 4 && <Link to="/cases" className="section-link">Ver todos</Link>}
           </div>
-          <div className="recent-grid">
-            {cases.slice(0, 4).map((c, i) => {
-              const tag = STATUS_TAG[c.status]
-              return (
-                <Link key={c.id} to={`/cases/${c.id}`} className="recent-card">
-                  <div className="recent-card-top">
+
+          {cases.length > 0 ? (
+            <div className="recent-list">
+              {cases.slice(0, 4).map((c) => {
+                const tag = STATUS_TAG[c.status]
+                return (
+                  <Link key={c.id} to={`/cases/${c.id}`} className="recent-row">
                     <span className="recent-folder"><Folder size={16} /></span>
-                    <span className="recent-num">{c.caseNumber ?? `#${String(i + 1).padStart(4, '0')}`}</span>
-                  </div>
-                  <strong className="recent-title">{c.title || c.clientName}</strong>
-                  <span className="recent-fase">Fase: {ETAPA_LABEL[c.etapaAtual]}</span>
-                  <div className="recent-card-foot">
+                    <div className="recent-row-info">
+                      <strong>{c.title || c.clientName}</strong>
+                      <span>{c.caseNumber ?? ETAPA_LABEL[c.etapaAtual]}</span>
+                    </div>
                     <span className={`recent-status ${tag.cls}`}>{tag.label.toUpperCase()}</span>
-                    <span className="recent-open">Abrir <ArrowRight size={13} /></span>
-                  </div>
-                </Link>
-              )
-            })}
+                    <ArrowRight size={14} className="recent-open" />
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="panel-empty">
+              <Folder size={26} />
+              <span>Nenhum caso cadastrado.</span>
+            </div>
+          )}
+        </div>
+
+        {/* Painel IA Assistente */}
+        <div className="ia-panel">
+          <div className="ia-panel-head">
+            <span className="ia-panel-icon"><Sparkles size={16} /></span>
+            <strong>IA Assistente</strong>
           </div>
-        </section>
-      )}
+          <div className="ia-stats">
+            <div className="ia-stat">
+              <span>Docs analisados</span>
+              <strong>{docsRecebidos}</strong>
+            </div>
+            <div className="ia-stat">
+              <span>Documentos pendentes</span>
+              <strong>{docsPendentes}</strong>
+            </div>
+          </div>
+          <p className="ia-ready">
+            <span className="ia-ready-dot" />
+            {!caso ? 'SEM EXECUÇÃO ATIVA.' : docsPendentes === 0 ? 'PRONTA PARA GERAR A PEÇA.' : 'AGUARDANDO DOCUMENTOS.'}
+          </p>
+          <button
+            className="ia-cta"
+            onClick={() => caso && navigate(`/cases/${caso.id}/pecas`)}
+            disabled={!caso}
+          >
+            Consultar IA
+          </button>
+        </div>
+       </aside>
+      </div>
     </div>
   )
 }

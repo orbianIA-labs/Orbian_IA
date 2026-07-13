@@ -32,6 +32,7 @@ export type EtapaPipeline =
   | 'cadastro'
   | 'documentos'
   | 'pecas'
+  | 'prazos'
   | 'revisao'
   | 'protocolo'
   | 'atualizacoes'
@@ -42,6 +43,7 @@ export type LegalCase = {
   title: string
   caseNumber?: string
   tribunal: string
+  instancia?: string
   clientName: string
   clientPhone: string
   clientEmail: string
@@ -55,6 +57,11 @@ export type LegalCase = {
   progress: number
   nextAction: string
   nextDeadline?: string
+  reuNome?: string
+  reuCpfCnpj?: string
+  reuAdvogado?: string
+  resumoFatos?: string
+  pedidosProvidencias?: string
   claimValue: number
   fees: number
   received: number

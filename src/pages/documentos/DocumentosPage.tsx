@@ -1,13 +1,16 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bot, Download, FileText, Plus, Sparkles, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Download, FileText, Plus, Sparkles, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
 import { documentosService, type Documento } from '@/services/documentos.service'
+import { formatDate } from '@/lib/utils'
 
 const CATEGORIAS = ['Todos', 'Procuração', 'Contratos', 'Petições', 'Decisões', 'Sentenças', 'Recursos', 'Outros'] as const
 type Categoria = (typeof CATEGORIAS)[number]
+
+const PIPELINE_LABELS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -26,12 +29,17 @@ export function DocumentosPage() {
   const [forAI, setForAI] = useState<Set<string>>(new Set())
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [contexto, setContexto] = useState('')
 
   const { data: legalCase } = useQuery({
     queryKey: ['case', id],
     queryFn: () => casesService.get(id!),
     enabled: !!id,
   })
+
+  useEffect(() => {
+    if (legalCase?.resumoFatos) setContexto(legalCase.resumoFatos)
+  }, [legalCase?.resumoFatos])
 
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ['documentos', id],
@@ -63,6 +71,11 @@ export function DocumentosPage() {
     onError: () => setAiSummary('Não foi possível analisar os documentos agora. Tente novamente em instantes.'),
   })
 
+  const salvarContexto = useMutation({
+    mutationFn: () => casesService.update(id!, { resumoFatos: contexto }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['case', id] }),
+  })
+
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length) upload.mutate(files)
@@ -84,121 +97,156 @@ export function DocumentosPage() {
 
   const docsParaIA = docs.filter((d) => forAI.has(d.id))
 
-  const counts = CATEGORIAS.reduce((acc, cat) => {
-    acc[cat] = cat === 'Todos' ? docs.length : docs.filter((d) => d.tipo === cat).length
-    return acc
-  }, {} as Record<Categoria, number>)
-
   return (
-    <div className="page-stack">
-      <div className="doc-page-header">
+    <div className="doc-page">
+      <header className="new-case-header">
         <button className="back-btn" onClick={() => navigate(`/cases/${id}`)}>
           <ArrowLeft size={16} /> Voltar ao caso
         </button>
-        <div className="doc-page-title">
-          <h1>Documentos</h1>
-          {legalCase && <p className="eyebrow">{legalCase.clientName}</p>}
-        </div>
-        <div className="button-row" style={{ margin: 0 }}>
-          <select
-            value={uploadCategoria}
-            onChange={(e) => setUploadCategoria(e.target.value as Categoria)}
-            style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--line)' }}
-          >
-            {CATEGORIAS.filter((c) => c !== 'Todos').map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <Button onClick={() => fileInputRef.current?.click()} disabled={upload.isPending}>
-            <Upload size={15} /> {upload.isPending ? 'Enviando...' : 'Adicionar documento'}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-            style={{ display: 'none' }}
-            onChange={onFileChange}
-          />
-        </div>
-      </div>
-
-      {erro && <p style={{ color: 'var(--danger)', fontSize: 13, padding: '0 32px' }}>{erro}</p>}
-
-      <div className="doc-page-layout">
-        {/* ── Sidebar de categorias ── */}
-        <aside className="doc-sidebar">
-          <p className="section-label" style={{ marginBottom: 8 }}>CATEGORIAS</p>
-          {CATEGORIAS.map((cat) => (
-            <button
-              key={cat}
-              className={`doc-sidebar-item ${categoriaAtiva === cat ? 'active' : ''}`}
-              onClick={() => setCategoriaAtiva(cat)}
-            >
-              <span>{cat}</span>
-              {counts[cat] > 0 && <span className="doc-sidebar-count">{counts[cat]}</span>}
-            </button>
+        <nav className="pipeline-tabs">
+          {PIPELINE_LABELS.map((label, i) => (
+            <span key={label} className={`pipeline-tab ${i < 1 ? 'done' : i === 1 ? 'active' : 'locked'}`}>
+              {i < 1 ? <CheckCircle2 size={13} /> : <span className="pipeline-tab-dot">{i + 1}</span>}
+              {label}
+            </span>
           ))}
-        </aside>
+        </nav>
+        <Button
+          onClick={() => navigate(`/cases/${id}/pecas`)}
+          disabled={docs.length === 0}
+          className={docs.length === 0 ? 'button-blocked' : undefined}
+        >
+          Continuar para Gerar Peças <ArrowRight size={15} />
+        </Button>
+      </header>
 
-        {/* ── Lista de documentos ── */}
-        <main className="doc-main">
-          {isLoading ? (
-            <div className="empty-state" style={{ minHeight: 200 }}>
-              <FileText size={36} style={{ opacity: 0.3 }} />
-              <p>Carregando documentos...</p>
+      <div className="doc-page-body">
+        <div className="doc-page-main">
+          <div>
+            <h1>Documentos</h1>
+            <p className="new-case-card-sub" style={{ paddingBottom: 0, border: 'none' }}>
+              Organize todas as informações necessárias para a execução jurídica.
+            </p>
+          </div>
+
+          <section className="new-case-card">
+            <p className="section-label-lg" style={{ fontSize: 15 }}>Contexto da Execução</p>
+            <p style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>
+              Descreva os fatos relevantes, acontecimentos principais e objetivo da próxima peça.
+            </p>
+            <textarea
+              rows={3}
+              value={contexto}
+              onChange={(e) => setContexto(e.target.value)}
+              onBlur={() => contexto !== (legalCase?.resumoFatos ?? '') && salvarContexto.mutate()}
+              placeholder="Descreva o que aconteceu neste caso, os pontos importantes e o objetivo jurídico desta execução..."
+            />
+          </section>
+
+          {erro && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erro}</p>}
+
+          <section className="new-case-card doc-list-card">
+            <div className="ws-section-header">
+              <div>
+                <p className="section-label-lg" style={{ fontSize: 15 }}>Documentos do Caso</p>
+                <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>Gerencie os arquivos que servirão de base para a inteligência artificial.</p>
+              </div>
+              <div className="button-row" style={{ margin: 0 }}>
+                <select
+                  value={uploadCategoria}
+                  onChange={(e) => setUploadCategoria(e.target.value as Categoria)}
+                  style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--line)' }}
+                >
+                  {CATEGORIAS.filter((c) => c !== 'Todos').map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={upload.isPending}>
+                  <Upload size={15} /> {upload.isPending ? 'Enviando...' : 'Adicionar Documento'}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                  style={{ display: 'none' }}
+                  onChange={onFileChange}
+                />
+              </div>
             </div>
-          ) : displayedDocs.length === 0 ? (
-            <div className="empty-state" style={{ minHeight: 200 }}>
-              <FileText size={36} style={{ opacity: 0.3 }} />
-              <p>{categoriaAtiva === 'Todos' ? 'Nenhum documento adicionado.' : `Nenhum documento em ${categoriaAtiva}.`}</p>
-              <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-                <Plus size={14} /> Adicionar
-              </Button>
-            </div>
-          ) : (
-            <div className="doc-list">
-              {displayedDocs.map((doc: Documento) => (
-                <div key={doc.id} className={`doc-row ${forAI.has(doc.id) ? 'for-ai' : ''}`}>
-                  <div className="doc-row-icon">
-                    <FileText size={18} />
-                  </div>
-                  <div className="doc-row-info">
-                    <strong>{doc.nomeArquivo}</strong>
-                    <span>{doc.tipo ?? 'Outros'} · {formatSize(doc.tamanhoBytes)}</span>
-                  </div>
-                  <div className="doc-row-actions">
-                    <button
-                      className={`doc-ai-toggle ${forAI.has(doc.id) ? 'active' : ''}`}
-                      onClick={() => toggleAI(doc.id)}
-                      title={forAI.has(doc.id) ? 'Remover da IA' : 'Usar com IA'}
-                    >
-                      <Bot size={14} />
-                      {forAI.has(doc.id) ? 'Selecionado para IA' : 'Usar com IA'}
-                    </button>
-                    <button className="doc-view-btn" title="Baixar" onClick={() => documentosService.download(doc.id, doc.nomeArquivo)}>
-                      <Download size={15} />
-                    </button>
-                    <button className="doc-remove-btn" onClick={() => remover.mutate(doc.id)} title="Remover" disabled={remover.isPending}>
-                      <X size={15} />
-                    </button>
-                  </div>
-                </div>
+
+            <div className="doc-tabs">
+              {CATEGORIAS.map((cat) => (
+                <button
+                  key={cat}
+                  className={categoriaAtiva === cat ? 'active' : ''}
+                  onClick={() => setCategoriaAtiva(cat)}
+                >
+                  {cat}
+                </button>
               ))}
             </div>
-          )}
-        </main>
+
+            {isLoading ? (
+              <div className="empty-state" style={{ minHeight: 160 }}>
+                <FileText size={32} style={{ opacity: 0.3 }} />
+                <p>Carregando documentos...</p>
+              </div>
+            ) : displayedDocs.length === 0 ? (
+              <div className="empty-state" style={{ minHeight: 160 }}>
+                <FileText size={32} style={{ opacity: 0.3 }} />
+                <p>{categoriaAtiva === 'Todos' ? 'Nenhum documento adicionado.' : `Nenhum documento em ${categoriaAtiva}.`}</p>
+                <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                  <Plus size={14} /> Adicionar
+                </Button>
+              </div>
+            ) : (
+              <div className="doc-table">
+                <div className="doc-table-head">
+                  <span>Nome</span>
+                  <span>Categoria</span>
+                  <span>Data</span>
+                  <span>Tamanho</span>
+                  <span />
+                </div>
+                {displayedDocs.map((doc: Documento) => (
+                  <div key={doc.id} className={`doc-table-row ${forAI.has(doc.id) ? 'for-ai' : ''}`}>
+                    <span className="doc-table-name"><FileText size={15} /> {doc.nomeArquivo}</span>
+                    <span><span className="doc-cat-chip">{doc.tipo ?? 'Outros'}</span></span>
+                    <span className="muted">{formatDate(doc.createdAt)}</span>
+                    <span className="muted">{formatSize(doc.tamanhoBytes)}</span>
+                    <span className="doc-table-actions">
+                      <button
+                        className={`doc-ai-toggle ${forAI.has(doc.id) ? 'active' : ''}`}
+                        onClick={() => toggleAI(doc.id)}
+                        title={forAI.has(doc.id) ? 'Remover da IA' : 'Usar com IA'}
+                      >
+                        <Bot size={13} />
+                      </button>
+                      <button className="doc-view-btn" title="Baixar" onClick={() => documentosService.download(doc.id, doc.nomeArquivo)}>
+                        <Download size={14} />
+                      </button>
+                      <button className="doc-remove-btn" onClick={() => remover.mutate(doc.id)} title="Remover" disabled={remover.isPending}>
+                        <X size={14} />
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
 
         {/* ── Painel IA ── */}
-        <aside className="doc-ai-panel">
+        <aside className="new-case-card new-case-insights doc-ai-panel">
           <div className="doc-ai-panel-header">
             <Sparkles size={16} style={{ color: 'var(--c-primary)' }} />
-            <p className="section-label" style={{ margin: 0 }}>DOCUMENTOS PARA IA</p>
+            <p className="section-label" style={{ margin: 0 }}>PREPARAÇÃO DA PEÇA</p>
           </div>
 
           {docsParaIA.length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-              Selecione documentos para incluir na análise da IA.
+              Selecione documentos na lista para incluir na análise da IA.
             </p>
           ) : (
             <>
@@ -235,16 +283,6 @@ export function DocumentosPage() {
                 Limpar
               </button>
             </div>
-          )}
-
-          {docsParaIA.length > 0 && (
-            <Button
-              variant="secondary"
-              style={{ width: '100%', marginTop: 8 }}
-              onClick={() => navigate(`/cases/${id}/pecas`)}
-            >
-              <Sparkles size={14} /> Gerar peça com estes docs
-            </Button>
           )}
         </aside>
       </div>

@@ -8,11 +8,17 @@ type CasoResponse = {
   clienteNome: string
   numeroProcesso: string | null
   tribunal: string | null
+  instancia: string | null
   areaJuridica: string | null
   categoria: string | null
   status: string
   tipoServico: string | null
   etapaAtual: string
+  reuNome: string | null
+  reuCpfCnpj: string | null
+  reuAdvogado: string | null
+  resumoFatos: string | null
+  pedidosProvidencias: string | null
   valorCausa: number
   honorarios: number
   valorRecebido: number
@@ -27,6 +33,7 @@ function mapCaso(c: CasoResponse): LegalCase {
     title: c.clienteNome,
     caseNumber: c.numeroProcesso ?? undefined,
     tribunal: c.tribunal ?? '',
+    instancia: c.instancia ?? undefined,
     clientName: c.clienteNome,
     clientPhone: '',
     clientEmail: '',
@@ -39,6 +46,11 @@ function mapCaso(c: CasoResponse): LegalCase {
     etapaAtual: (c.etapaAtual ?? 'cadastro') as LegalCase['etapaAtual'],
     progress: 0,
     nextAction: 'Ver detalhes',
+    reuNome: c.reuNome ?? undefined,
+    reuCpfCnpj: c.reuCpfCnpj ?? undefined,
+    reuAdvogado: c.reuAdvogado ?? undefined,
+    resumoFatos: c.resumoFatos ?? undefined,
+    pedidosProvidencias: c.pedidosProvidencias ?? undefined,
     claimValue: c.valorCausa ?? 0,
     fees: c.honorarios ?? 0,
     received: c.valorRecebido ?? 0,
@@ -57,11 +69,17 @@ export type CaseFilters = {
 export type UpdateCasePatch = {
   numeroProcesso?: string | null
   tribunal?: string | null
+  instancia?: string | null
   areaJuridica?: string | null
   categoria?: string | null
   status?: CaseStatus
   tipoServico?: string | null
   etapaAtual?: string
+  reuNome?: string | null
+  reuCpfCnpj?: string | null
+  reuAdvogado?: string | null
+  resumoFatos?: string | null
+  pedidosProvidencias?: string | null
   valorCausa?: number
   honorarios?: number
   valorRecebido?: number
@@ -90,9 +108,15 @@ export const casesService = {
       clienteId: cliente.id,
       numeroProcesso: input.caseNumber || null,
       tribunal: input.tribunal || null,
+      instancia: input.instancia || null,
       areaJuridica: input.area,
       categoria: input.flow || null,
       tipoServico: input.tipoServico || null,
+      reuNome: input.reuNome || null,
+      reuCpfCnpj: input.reuCpfCnpj || null,
+      reuAdvogado: input.reuAdvogado || null,
+      resumoFatos: input.resumoFatos || null,
+      pedidosProvidencias: input.pedidosProvidencias || null,
       valorCausa: input.valorCausa ?? null,
       honorarios: input.honorarios ?? null,
       valorRecebido: input.valorRecebido ?? null,
