@@ -14,7 +14,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { casesService } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
-import { etapasService } from '@/services/etapas.service'
 import { useAuthStore } from '@/store/authStore'
 import type { CaseStatus, Deadline, EtapaPipeline } from '@/types/domain.types'
 
@@ -130,18 +129,7 @@ export function DashboardPage() {
   const sorted = [...pending].sort((a, b) => score(b) - score(a))
   const execucao = sorted[0]
   const caso = execucao ? cases.find((c) => c.id === execucao.caseId) : null
-
-  const { data: etapas = [] } = useQuery({
-    queryKey: ['etapas', caso?.id],
-    queryFn: () => etapasService.list(caso!.id),
-    enabled: !!caso?.id,
-  })
-
   const proximas = sorted.slice(1, 4)
-
-  // Progresso da missão a partir das etapas
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const etapasDone = etapas.filter((e) => e.concluida).length
 
   // Estatísticas do painel de IA
   const docsRecebidos = caso?.recommendedDocuments.filter((d) => d.received).length ?? 0
