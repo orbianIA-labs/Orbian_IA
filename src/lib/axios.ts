@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import { tokenStorage } from '@/lib/tokenStorage'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
@@ -28,7 +29,7 @@ api.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true
         try {
-          const refreshToken = localStorage.getItem('refresh_token')
+          const refreshToken = tokenStorage.get()
           if (!refreshToken) throw new Error('No refresh token')
 
           const { data } = await axios.post(
@@ -36,7 +37,7 @@ api.interceptors.response.use(
             { refreshToken },
           )
 
-          localStorage.setItem('refresh_token', data.refreshToken)
+          tokenStorage.refresh(data.refreshToken)
           useAuthStore.getState().setTokens(data.accessToken, {
             id: data.usuario.id,
             name: data.usuario.nome,
@@ -47,7 +48,7 @@ api.interceptors.response.use(
           pendingRequests.forEach((cb) => cb(data.accessToken))
           pendingRequests = []
         } catch {
-          localStorage.removeItem('refresh_token')
+          tokenStorage.clear()
           useAuthStore.getState().clearAuth()
           window.location.href = '/#/login'
           return Promise.reject(error)

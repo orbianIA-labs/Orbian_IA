@@ -1,4 +1,5 @@
 import api from '@/lib/axios'
+import { tokenStorage } from '@/lib/tokenStorage'
 import type { User } from '@/types/domain.types'
 
 type AuthApiResponse = {
@@ -17,31 +18,31 @@ function mapUser(dto: AuthApiResponse['usuario']): User {
 }
 
 export const authService = {
-  async register(nome: string, email: string, senha: string) {
+  async register(nome: string, email: string, senha: string, remember = true) {
     const { data } = await api.post<AuthApiResponse>('/api/auth/register', { nome, email, senha })
-    localStorage.setItem('refresh_token', data.refreshToken)
+    tokenStorage.set(data.refreshToken, remember)
     return { accessToken: data.accessToken, user: mapUser(data.usuario) }
   },
 
-  async login(email: string, senha: string) {
+  async login(email: string, senha: string, remember = true) {
     const { data } = await api.post<AuthApiResponse>('/api/auth/login', { email, senha })
-    localStorage.setItem('refresh_token', data.refreshToken)
+    tokenStorage.set(data.refreshToken, remember)
     return { accessToken: data.accessToken, user: mapUser(data.usuario) }
   },
 
   async checkSession() {
-    const refreshToken = localStorage.getItem('refresh_token')
+    const refreshToken = tokenStorage.get()
     if (!refreshToken) throw new Error('Sem sessão ativa')
     const { data } = await api.post<AuthApiResponse>('/api/auth/refresh', { refreshToken })
-    localStorage.setItem('refresh_token', data.refreshToken)
+    tokenStorage.refresh(data.refreshToken)
     return { accessToken: data.accessToken, user: mapUser(data.usuario) }
   },
 
   async logout() {
-    const refreshToken = localStorage.getItem('refresh_token')
+    const refreshToken = tokenStorage.get()
     if (refreshToken) {
       await api.post('/api/auth/logout', { refreshToken }).catch(() => {})
-      localStorage.removeItem('refresh_token')
+      tokenStorage.clear()
     }
   },
 }

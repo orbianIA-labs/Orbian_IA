@@ -1,17 +1,49 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OrbianLogo } from '@/components/brand/OrbianLogo'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
+import { toast } from '@/store/toastStore'
 
-const PIPELINE_LABELS = ['Cadastro', 'Documentos', 'Peças', 'Prazos', 'Revisão', 'Encerramento']
-// Coordenadas de um zig-zag simples para o gráfico decorativo (mesmas etapas do pipeline real).
-const PIPELINE_POINTS = [
-  { x: 20, y: 70 }, { x: 90, y: 20 }, { x: 160, y: 70 },
-  { x: 230, y: 20 }, { x: 300, y: 70 }, { x: 370, y: 15 },
+type PipelinePoint = {
+  key: string
+  label: string
+  desc: string
+  x: number
+  y: number
+  labelPos: 'above' | 'below'
+}
+
+const PIPELINE: PipelinePoint[] = [
+  { key: 'cliente', label: 'Cliente', desc: 'Gestão 360 do assistido', x: 25, y: 95, labelPos: 'below' },
+  { key: 'caso', label: 'Caso', desc: 'Estruture o caso em minutos', x: 145, y: 35, labelPos: 'above' },
+  { key: 'documentos', label: 'Documentos', desc: 'Organize provas e anexos', x: 265, y: 118, labelPos: 'below' },
+  { key: 'pecas', label: 'Gerar Peças', desc: 'Peças com IA em segundos', x: 385, y: 92, labelPos: 'below' },
+  { key: 'prazos', label: 'Prazos', desc: 'Nunca perca uma data', x: 480, y: 28, labelPos: 'above' },
+  { key: 'conclusao', label: 'Conclusão', desc: 'Feche com auditoria completa', x: 585, y: 82, labelPos: 'below' },
 ]
+
+/** Curva suave (Catmull-Rom → Bézier) passando exatamente pelos pontos do pipeline. */
+function smoothPath(points: { x: number; y: number }[]): string {
+  if (points.length < 2) return ''
+  const d = [`M ${points[0].x},${points[0].y}`]
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i]
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    const p3 = points[i + 2] ?? p2
+    const c1x = p1.x + (p2.x - p0.x) / 6
+    const c1y = p1.y + (p2.y - p0.y) / 6
+    const c2x = p2.x - (p3.x - p1.x) / 6
+    const c2y = p2.y - (p3.y - p1.y) / 6
+    d.push(`C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`)
+  }
+  return d.join(' ')
+}
+
+const PIPELINE_PATH = smoothPath(PIPELINE)
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -20,6 +52,7 @@ export function LoginPage() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [lembrar, setLembrar] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -30,8 +63,8 @@ export function LoginPage() {
     try {
       const session =
         mode === 'login'
-          ? await authService.login(email, senha)
-          : await authService.register(nome, email, senha)
+          ? await authService.login(email, senha, lembrar)
+          : await authService.register(nome, email, senha, lembrar)
       setTokens(session.accessToken, session.user)
       navigate('/')
     } catch {
@@ -43,46 +76,15 @@ export function LoginPage() {
 
   return (
     <main className="auth-page-split">
-      <section className="auth-brand-side">
-        <div className="auth-brand">
-          <OrbianLogo size={32} withWordmark />
-        </div>
-
-        <div className="auth-hero">
-          <h1>O Sistema Operacional da <span>Advocacia</span></h1>
-          <p>Transforme informações jurídicas em execução inteligente através de fluxos automatizados de alto desempenho.</p>
-        </div>
-
-        <svg className="auth-pipeline-chart" viewBox="0 0 390 90" fill="none">
-          <polyline
-            points={PIPELINE_POINTS.map((p) => `${p.x},${p.y}`).join(' ')}
-            stroke="var(--c-primary)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {PIPELINE_POINTS.map((p, i) => (
-            <g key={PIPELINE_LABELS[i]}>
-              <circle cx={p.x} cy={p.y} r="4" fill={i === PIPELINE_POINTS.length - 1 ? 'var(--c-primary)' : 'var(--surface)'} stroke="var(--c-primary)" strokeWidth="2" />
-              <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize="9" fill={i === PIPELINE_POINTS.length - 1 ? 'var(--c-primary)' : 'var(--muted)'} fontWeight={i === PIPELINE_POINTS.length - 1 ? 700 : 400}>
-                {PIPELINE_LABELS[i]}
-              </text>
-            </g>
-          ))}
-        </svg>
-
-        <div className="auth-badges">
-          <span><ShieldCheck size={14} /> Ambiente seguro</span>
-          <span><Sparkles size={14} /> IA integrada</span>
-        </div>
-      </section>
-
       <section className="auth-form-side">
+        <div className="auth-mini-brand">Orbian<span>.AI</span></div>
+
         <div className="auth-card">
           <header>
-            <h2>{mode === 'login' ? 'Entrar na Orbian.AI' : 'Criar conta na Orbian.AI'}</h2>
-            <p>{mode === 'login' ? 'Acesse sua operação jurídica inteligente.' : 'Comece a organizar sua operação jurídica.'}</p>
+            <h2>{mode === 'login' ? 'Bem-vindo.' : 'Criar conta.'}</h2>
+            <p>{mode === 'login' ? 'Entre para continuar sua operação jurídica.' : 'Comece a organizar sua operação jurídica.'}</p>
           </header>
+
           <form onSubmit={handleSubmit} className="form-stack">
             {mode === 'register' && (
               <label>
@@ -97,12 +99,12 @@ export function LoginPage() {
               </label>
             )}
             <label>
-              Email
+              E-mail
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="nome@escritorio.com.br"
+                placeholder="nome@empresa.com.br"
                 required
               />
             </label>
@@ -116,12 +118,44 @@ export function LoginPage() {
                 required
               />
             </label>
+
+            <div className="auth-form-row">
+              <label className="auth-remember">
+                <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} />
+                Lembrar-me
+              </label>
+              <button
+                type="button"
+                className="auth-forgot-link"
+                onClick={() => toast('Recuperação de senha ainda não está disponível.', 'info')}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+
             {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
             <Button type="submit" disabled={loading}>
               {loading ? (mode === 'login' ? 'Entrando...' : 'Criando conta...') : (mode === 'login' ? 'Entrar' : 'Criar conta')}
               {!loading && <ArrowRight size={16} />}
             </Button>
           </form>
+
+          <div className="auth-divider"><span>ou</span></div>
+
+          <button
+            type="button"
+            className="auth-google-btn"
+            onClick={() => toast('Login com Google ainda não está disponível.', 'info')}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z" />
+              <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z" />
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
+            </svg>
+            Continuar com Google
+          </button>
+
           <p className="auth-toggle">
             {mode === 'login' ? 'Ainda não possui conta?' : 'Já possui conta?'}{' '}
             <button
@@ -131,6 +165,55 @@ export function LoginPage() {
               {mode === 'login' ? 'Criar conta' : 'Fazer login'}
             </button>
           </p>
+        </div>
+
+        <footer className="auth-legal-links">
+          <a href="#">Termos de Uso</a>
+          <a href="#">Política de Privacidade</a>
+        </footer>
+      </section>
+
+      <section className="auth-brand-side">
+        <div className="auth-brand">
+          <OrbianLogo size={30} withWordmark />
+        </div>
+        <p className="auth-tagline">O sistema operacional da advocacia.</p>
+
+        <div className="auth-pipeline-wrap">
+          <svg className="auth-pipeline-chart" viewBox="0 0 610 150" fill="none">
+            <path className="pipeline-path" d={PIPELINE_PATH} stroke="var(--line-strong)" strokeWidth="2" strokeLinecap="round" />
+
+            <circle className="pipeline-dot-traveler" r="5">
+              <animateMotion dur="18s" repeatCount="indefinite" path={PIPELINE_PATH} />
+            </circle>
+
+            {PIPELINE.map((p) => {
+              const tooltipWidth = 155
+              const tooltipX = Math.min(Math.max(p.x - tooltipWidth / 2, 4), 610 - tooltipWidth - 4)
+              return (
+                <g key={p.key} className="pipeline-point" tabIndex={0}>
+                  <circle cx={p.x} cy={p.y} r="16" fill="transparent" />
+                  <circle className="pipeline-point-dot" cx={p.x} cy={p.y} r="4.5" />
+                  <text
+                    x={p.x}
+                    y={p.labelPos === 'above' ? p.y - 14 : p.y + 22}
+                    textAnchor="middle"
+                    className="pipeline-label"
+                  >
+                    {p.label}
+                  </text>
+                  <foreignObject
+                    x={tooltipX}
+                    y={p.labelPos === 'above' ? p.y + 14 : p.y + 32}
+                    width={tooltipWidth}
+                    height="30"
+                  >
+                    <div className="pipeline-tooltip">{p.desc}</div>
+                  </foreignObject>
+                </g>
+              )
+            })}
+          </svg>
         </div>
       </section>
     </main>
