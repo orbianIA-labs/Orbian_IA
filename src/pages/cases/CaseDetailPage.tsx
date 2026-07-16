@@ -7,15 +7,23 @@ import {
   Rocket, Share2, ShieldCheck, Sparkles, Star, Upload, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { areaLabel, caseStatusLabel, caseStatusOptions, formatDate } from '@/lib/utils'
+import { areaLabel, caseStatusLabel, caseStatusOptions, formatDate, relativeTime } from '@/lib/utils'
 import { casesService, type UpdateCasePatch } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
 import { documentosService } from '@/services/documentos.service'
 import { toast } from '@/store/toastStore'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/axios'
-import type { EtapaPipeline } from '@/types/domain.types'
+import type { CaseStatus, EtapaPipeline } from '@/types/domain.types'
 import { extrairSecaoHtml, MODULOS_PECA } from '@/lib/pecaSections'
+
+const STATUS_BADGE_CLASS: Record<CaseStatus, string> = {
+  em_andamento: 'badge-success',
+  aguardando_documentos: 'badge-warning',
+  aguardando_prazo: 'badge-warning',
+  finalizado: 'badge-info',
+  arquivado: 'badge-normal',
+}
 
 const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
   cadastro: 'Completar cadastro do caso',
@@ -28,17 +36,6 @@ const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
   encerramento: 'Finalizar caso',
 }
 
-/** "há 12 min" / "há 4h" / "há 2d" a partir de um timestamp ISO. */
-function relativeTime(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(diffMs / 60000)
-  if (min < 1) return 'agora mesmo'
-  if (min < 60) return `há ${min} min`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `há ${h}h`
-  const d = Math.floor(h / 24)
-  return `há ${d}d`
-}
 
 function initialsOf(name?: string) {
   if (!name) return '—'
@@ -165,13 +162,13 @@ export function CaseDetailPage() {
   // ── Gating do pipeline: cada etapa só libera a próxima se o requisito for cumprido ──
   const docCount = documentos.length
   const hasPeca = pecas.length >= 1
-  // Regra: só é possível gerar peças com ao menos 1 documento anexado.
-  const podeGerarPecas = docCount > 0
-  const bloqueioPecasHint = 'Adicione ao menos 1 documento ao caso para gerar peças.'
+  // Documentos não são mais obrigatórios para gerar peças.
+  const podeGerarPecas = true
+  const bloqueioPecasHint = ''
 
   const stageReq: Record<EtapaPipeline, { met: boolean; hint: string }> = {
     cadastro:     { met: true, hint: '' },
-    documentos:   { met: docCount >= 1, hint: 'Adicione pelo menos 1 documento para liberar as Peças.' },
+    documentos:   { met: true, hint: '' },
     pecas:        { met: hasPeca, hint: 'Gere pelo menos 1 peça para avançar.' },
     // Prazos ↔ Agenda: só avança com pelo menos 1 prazo cadastrado para o caso.
     prazos:       { met: caseDeadlines.length > 0, hint: 'Cadastre um prazo (Agenda) para avançar.' },
@@ -354,11 +351,15 @@ export function CaseDetailPage() {
           </button>
           {nextStage ? (
             <Button
-              onClick={() => canAdvance && avancarEtapa.mutate(nextStage.key)}
-              disabled={!canAdvance || avancarEtapa.isPending}
+              className="case-primary-cta"
+              onClick={() => {
+                if (avancarEtapa.isPending) return
+                if (canAdvance) avancarEtapa.mutate(nextStage.key)
+                else toast(currentReq.hint, 'warning')
+              }}
               title={!canAdvance ? currentReq.hint : undefined}
             >
-              <Zap size={15} /> Executar Próxima Ação
+              <Zap size={15} /> {avancarEtapa.isPending ? 'Executando...' : 'Executar Próxima Ação'}
             </Button>
           ) : (
             <Button
@@ -398,8 +399,11 @@ export function CaseDetailPage() {
           <div className="pipeline-advance">
             <button
               className="pipeline-advance-btn"
-              onClick={() => canAdvance && avancarEtapa.mutate(nextStage.key)}
-              disabled={!canAdvance || avancarEtapa.isPending}
+              onClick={() => {
+                if (avancarEtapa.isPending) return
+                if (canAdvance) avancarEtapa.mutate(nextStage.key)
+                else toast(currentReq.hint, 'warning')
+              }}
             >
               {canAdvance ? `Avançar para ${nextStage.label}` : `${nextStage.label} bloqueado`}
             </button>
@@ -613,7 +617,8 @@ export function CaseDetailPage() {
           </div>
         </div>
        ) : currentStage.key === 'encerramento' ? (
-        <div className="closing-layout-v2">
+        <div className="closing-split">
+        <div className="closing-layout-v2 closing-main-col">
           <p className="section-label" style={{ marginBottom: 12 }}>RESUMO DA OPERAÇÃO</p>
           <div className="closing-summary-grid">
             <div className="closing-summary-card"><span>CASO</span><strong>{legalCase.title || legalCase.clientName}</strong></div>
@@ -681,6 +686,45 @@ export function CaseDetailPage() {
             <Button onClick={() => navigate('/cases')}>Voltar para Casos <Play size={13} fill="currentColor" /></Button>
           </div>
         </div>
+
+        {/* ── Orbian Intelligence: síntese real da operação ── */}
+        <aside className="ia-panel closing-ia-panel">
+          <div className="ia-panel-head">
+            <span className="ia-panel-icon"><Sparkles size={16} /></span>
+            <strong>Orbian Intelligence</strong>
+          </div>
+          <p className="closing-ia-title">Síntese da Operação</p>
+          <ul className="closing-ia-list">
+            <li>
+              <Sparkles size={14} />
+              Execução concluída {docCount > 0 ? `com ${docCount} documento${docCount !== 1 ? 's' : ''} vinculado${docCount !== 1 ? 's' : ''}` : 'sem documentos vinculados'}.
+            </li>
+            <li>
+              <CheckCircle2 size={14} />
+              {hasPeca ? 'A peça foi criada e está disponível para exportação.' : 'Nenhuma peça foi gerada nesta execução.'}
+            </li>
+            <li>
+              <FileText size={14} />
+              O histórico desta operação foi preservado.
+            </li>
+            <li>
+              <Sparkles size={14} />
+              Esta execução pode ser utilizada como referência futura.
+            </li>
+          </ul>
+
+          {hasPeca && (
+            <div className="intel-card" style={{ marginTop: 'auto' }}>
+              <span className="intel-card-label">{estruturaCompleta ? 'ESTRUTURA COMPLETA' : 'PONTO DE ATENÇÃO'}</span>
+              <p>
+                {estruturaCompleta
+                  ? 'A peça segue a estrutura padrão completa: qualificação, fatos, fundamentação, pedidos e fechamento.'
+                  : `A peça ficou sem: ${secoesFaltando.join(', ')}.`}
+              </p>
+            </div>
+          )}
+        </aside>
+        </div>
        ) : (
         <div className="case-workspace-grid">
         {/* ── Coluna esquerda: resumo do caso + próxima ação ── */}
@@ -689,7 +733,7 @@ export function CaseDetailPage() {
             <div className="case-summary-row">
               <div><span>CLIENTE</span><strong>{legalCase.clientName}</strong></div>
               <div><span>PROCESSO</span><strong>{legalCase.caseNumber ?? '—'}</strong></div>
-              <div><span>STATUS</span><span className="badge badge-normal">{caseStatusLabel(legalCase.status)}</span></div>
+              <div><span>STATUS</span><span className={`badge ${STATUS_BADGE_CLASS[legalCase.status]}`}>{caseStatusLabel(legalCase.status)}</span></div>
             </div>
             <div className="case-summary-row">
               <div><span>ÁREA</span><strong>{areaLabel(legalCase.area)}</strong></div>
@@ -712,6 +756,29 @@ export function CaseDetailPage() {
                 <Archive size={12} /> {arquivar.isPending ? 'Arquivando...' : 'Arquivar caso'}
               </button>
             )}
+          </div>
+
+          <div className="panel case-flow-card">
+            <div className="case-flow-head">
+              <p className="section-label" style={{ margin: 0 }}>Fluxo de Execução</p>
+              <span className="case-flow-pct">{progressoPct}% concluído</span>
+            </div>
+            <nav className="case-stepper case-stepper-compact">
+              {PIPELINE.map((stage, idx) => {
+                const done = idx < currentPipelineIdx
+                const active = idx === currentPipelineIdx
+                const locked = idx > currentPipelineIdx
+                const cls = ['case-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+                return (
+                  <div key={stage.key} className={cls}>
+                    <span className="case-step-dot">
+                      {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={10} /> : idx + 1}
+                    </span>
+                    <span className="case-step-label">{stage.label}</span>
+                  </div>
+                )
+              })}
+            </nav>
           </div>
 
           <div className="panel case-next-action-card">
@@ -748,7 +815,12 @@ export function CaseDetailPage() {
             {pecas[0] ? (
               <>
                 <div className="case-doc-preview-head">
-                  <strong>{pecas[0].categoria.replace(/\s+/g, '_')}_V{pecas[0].versao}</strong>
+                  <div className="case-doc-preview-title-row">
+                    <strong>{pecas[0].categoria.replace(/\s+/g, '_')}_V{pecas[0].versao}</strong>
+                    <Button style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => setAddingPrazo((v) => !v)}>
+                      <Plus size={13} /> Adicionar Prazo
+                    </Button>
+                  </div>
                   <div className="case-doc-preview-tags">
                     <span className="case-doc-tag">{pecas[0].categoria}</span>
                     <span className="case-doc-tag">Versão {pecas[0].versao}</span>
@@ -831,9 +903,6 @@ export function CaseDetailPage() {
           <div className="panel">
             <div className="ws-section-header">
               <p className="section-label" style={{ margin: 0 }}>PRAZOS</p>
-              <button className="section-link-btn" onClick={() => setAddingPrazo((v) => !v)}>
-                <Plus size={13} /> Novo
-              </button>
             </div>
 
             {addingPrazo && (

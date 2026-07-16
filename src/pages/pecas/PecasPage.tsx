@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { OrbianEditor } from '@/components/editor/OrbianEditor'
 import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
-import { documentosService } from '@/services/documentos.service'
+import { usuariosService } from '@/services/usuarios.service'
 import { toast } from '@/store/toastStore'
 import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
 
@@ -68,6 +68,23 @@ export function PecasPage() {
   const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({
     fortalecer: false, jurisprudencia: false, clareza: false, contraArgumentacao: false,
   })
+  const [togglesCarregados, setTogglesCarregados] = useState(false)
+
+  const { data: iaPreferencias } = useQuery({
+    queryKey: ['ia-preferencias'],
+    queryFn: () => usuariosService.obterIaPreferencias(),
+  })
+
+  useEffect(() => {
+    if (!iaPreferencias || togglesCarregados) return
+    setToggles({
+      fortalecer: iaPreferencias.fortalecerFundamentacao,
+      jurisprudencia: iaPreferencias.sugerirJurisprudencia,
+      clareza: iaPreferencias.verificarClareza,
+      contraArgumentacao: iaPreferencias.contraArgumentacao,
+    })
+    setTogglesCarregados(true)
+  }, [iaPreferencias, togglesCarregados])
   const [moduloAtivo, setModuloAtivo] = useState<string | null>(null)
   const [mostrarNovaPeca, setMostrarNovaPeca] = useState(true)
   const editorContainerRef = useRef<HTMLDivElement>(null)
@@ -89,13 +106,6 @@ export function PecasPage() {
     queryFn: () => api.get('/api/templates', { params: { categoria } }).then((r) => r.data),
     enabled: !!categoria,
   })
-
-  const { data: documentos = [] } = useQuery({
-    queryKey: ['documentos', casoId],
-    queryFn: () => documentosService.list(casoId!),
-    enabled: !!casoId,
-  })
-  const semDocumentos = documentos.length === 0
 
   useEffect(() => {
     setEditedContent(pecaSelecionada?.conteudo ?? '')
@@ -285,17 +295,10 @@ export function PecasPage() {
           <Button
             style={{ width: '100%', justifyContent: 'center', background: 'var(--grad-primary)' }}
             onClick={() => gerar.mutate()}
-            disabled={!categoria || gerar.isPending || semDocumentos}
-            title={semDocumentos ? 'Adicione ao menos 1 documento ao caso para gerar peças.' : undefined}
+            disabled={!categoria || gerar.isPending}
           >
             {gerar.isPending ? <><Loader2 size={15} className="spin" /> Gerando...</> : <><Sparkles size={15} /> Gerar peça com IA</>}
           </Button>
-
-          {semDocumentos && (
-            <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <FileText size={12} /> Anexe ao menos 1 documento ao caso para liberar a geração de peças.
-            </p>
-          )}
 
           {gerar.isError && (
             <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 8 }}>

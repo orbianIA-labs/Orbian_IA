@@ -1,19 +1,17 @@
 import { useMemo, useState } from 'react'
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Circle,
+  ChevronRight,
+  Filter,
   FolderKanban,
   Plus,
   Search,
-  Sparkles,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
-import { areaLabel, formatDate } from '@/lib/utils'
+import { areaLabel, formatDate, relativeTime } from '@/lib/utils'
 import type { CaseStatus, Deadline, EtapaPipeline, LegalCase } from '@/types/domain.types'
 
 const TABS = [
@@ -23,15 +21,6 @@ const TABS = [
   { value: 'encerrados', label: 'Encerrados' },
   { value: 'arquivado', label: 'Arquivados' },
 ] as const
-
-const STAGE_ORDER: { key: EtapaPipeline; label: string }[] = [
-  { key: 'cadastro', label: 'Cadastro' },
-  { key: 'documentos', label: 'Documentos' },
-  { key: 'pecas', label: 'Peça' },
-  { key: 'prazos', label: 'Prazos' },
-  { key: 'revisao', label: 'Revisão' },
-  { key: 'encerramento', label: 'Encerramento' },
-]
 
 const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
   cadastro: 'Completar cadastro do caso',
@@ -44,22 +33,18 @@ const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
   encerramento: 'Finalizar caso',
 }
 
-function stageIndex(etapa: EtapaPipeline) {
-  const idx = STAGE_ORDER.findIndex((s) => s.key === etapa)
-  if (idx >= 0) return idx
-  return etapa === 'protocolo' || etapa === 'atualizacoes' ? 4 : 0
+const STATUS_BADGE: Record<CaseStatus, { label: string; cls: string }> = {
+  em_andamento: { label: 'Em andamento', cls: 'info' },
+  aguardando_documentos: { label: 'Aguardando documentos', cls: 'warning' },
+  aguardando_prazo: { label: 'Aguardando prazo', cls: 'warning' },
+  finalizado: { label: 'Concluído', cls: 'success' },
+  arquivado: { label: 'Arquivado', cls: 'muted' },
 }
 
 function nextDeadlineFor(deadlines: Deadline[], caseId: string) {
   return deadlines
     .filter((d) => d.caseId === caseId && !d.completed)
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0] ?? null
-}
-
-function isOverdue(dueDate: string) {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const d = new Date(dueDate); d.setHours(0, 0, 0, 0)
-  return d.getTime() < today.getTime()
 }
 
 function matchesTab(c: LegalCase, tab: (typeof TABS)[number]['value']) {
@@ -69,9 +54,9 @@ function matchesTab(c: LegalCase, tab: (typeof TABS)[number]['value']) {
 }
 
 export function CasesPage() {
-  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<(typeof TABS)[number]['value']>('em_andamento')
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { data: cases = [], isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => casesService.list() })
   const { data: deadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })
@@ -96,36 +81,48 @@ export function CasesPage() {
       <div className="cases-page-header">
         <div>
           <h1>Casos</h1>
-          <p>Controle inteligente da sua operação jurídica.</p>
+          <p>{filtered.length} casos ativos · conduzidos pela Orbian</p>
         </div>
-        <Link to="/cases/new" className="cases-new-btn">
-          <Button><Plus size={15} /> Novo Caso</Button>
-        </Link>
+        <div className="cases-header-actions">
+          <button
+            className={`cases-filter-btn ${filtersOpen ? 'active' : ''}`}
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            <Filter size={15} /> Filtros
+          </button>
+          <Link to="/cases/new" className="cases-new-btn">
+            <Button><Plus size={15} /> Novo caso</Button>
+          </Link>
+        </div>
       </div>
 
-      <label className="cases-search">
-        <Search size={14} />
-        <input
-          type="text"
-          placeholder="Pesquisar casos, clientes ou documentos..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </label>
+      {filtersOpen && (
+        <div className="cases-filters-panel">
+          <label className="cases-search">
+            <Search size={14} />
+            <input
+              type="text"
+              placeholder="Pesquisar casos, clientes ou documentos..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
 
-      <nav className="cases-tabs">
-        {TABS.map((t) => (
-          <button
-            key={t.value}
-            className={tab === t.value ? 'active' : ''}
-            onClick={() => setTab(t.value)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+          <nav className="cases-tabs">
+            {TABS.map((t) => (
+              <button
+                key={t.value}
+                className={tab === t.value ? 'active' : ''}
+                onClick={() => setTab(t.value)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
 
-      <div className="cases-list">
+      <div className="cases-grid">
         {isLoading && <p className="cases-grid-loading">Carregando...</p>}
         {!isLoading && filtered.length === 0 && (
           <div className="panel-empty">
@@ -135,49 +132,36 @@ export function CasesPage() {
         )}
         {filtered.map((c) => {
           const next = nextDeadlineFor(deadlines, c.id)
-          const overdue = next ? isOverdue(next.dueDate) : false
-          const idx = stageIndex(c.etapaAtual)
           const acao = PROXIMA_ACAO[c.etapaAtual] ?? PROXIMA_ACAO.cadastro
+          const badge = STATUS_BADGE[c.status]
 
           return (
-            <div key={c.id} className="case-card-row">
-              <div className="case-card-top">
-                <div>
+            <Link key={c.id} to={`/cases/${c.id}`} className="case-tile">
+              <div className="case-tile-top">
+                <div className="case-tile-name">
+                  <FolderKanban size={14} />
                   <h3>{c.title || c.clientName}</h3>
-                  <p className="case-card-meta">{areaLabel(c.area)} · {c.caseNumber ?? 'sem número de processo'}</p>
                 </div>
-                <div className="case-card-next-action">
-                  <span>PRÓXIMA AÇÃO</span>
-                  <strong>{acao}</strong>
-                </div>
+                <span className={`case-tile-badge ${badge.cls}`}>{badge.label}</span>
               </div>
 
-              <div className="case-card-stepper">
-                {STAGE_ORDER.map((stage, i) => (
-                  <div key={stage.key} className={`cc-step ${i < idx ? 'done' : ''} ${i === idx ? 'active' : ''}`}>
-                    <span className="cc-step-dot">{i < idx ? <CheckCircle2 size={16} /> : i === idx ? <Circle size={10} fill="currentColor" /> : i + 1}</span>
-                    <span className="cc-step-label">{stage.label}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="case-tile-number">{c.caseNumber ?? 'Sem número de processo'}</p>
+              <p className="case-tile-area">{areaLabel(c.area)}</p>
 
-              <div className="case-card-bottom">
-                {next ? (
-                  <p className={`case-card-insight ${overdue ? 'danger' : ''}`}>
-                    {overdue ? <AlertTriangle size={14} /> : <Sparkles size={14} />}
-                    {overdue ? <>Prazo <strong>{next.title}</strong> atrasado.</> : <>Próximo prazo: <strong>{next.title}</strong> em {formatDate(next.dueDate)}.</>}
-                  </p>
-                ) : (
-                  <p className="case-card-insight muted">
-                    <Sparkles size={14} /> Nenhum prazo pendente para este caso.
-                  </p>
-                )}
-                <div className="case-card-actions">
-                  <Button variant="secondary" onClick={() => navigate(`/cases/${c.id}`)}>Visualizar</Button>
-                  <Button onClick={() => navigate(`/cases/${c.id}`)}>Continuar</Button>
-                </div>
+              <div className="case-tile-divider" />
+
+              <p className="case-tile-action">{acao}</p>
+
+              <div className="case-tile-bottom">
+                <span className="case-tile-deadline">
+                  {next ? `${next.title} — ${formatDate(next.dueDate)}` : 'Sem prazos ativos'}
+                </span>
+                <span className="case-tile-time">
+                  {relativeTime(c.updatedAt)}
+                  <ChevronRight size={14} />
+                </span>
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>

@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/common/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
 import { AdminPage } from '@/pages/admin/AdminPage'
 import { CaseDetailPage } from '@/pages/cases/CaseDetailPage'
 import { CasesPage } from '@/pages/cases/CasesPage'
@@ -11,7 +12,6 @@ import { DeadlinesPage } from '@/pages/deadlines/DeadlinesPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { ProfilePage } from '@/pages/profile/ProfilePage'
 import { PecasPage } from '@/pages/pecas/PecasPage'
-import { AgendaPage } from '@/pages/agenda/AgendaPage'
 import { DocumentosPage } from '@/pages/documentos/DocumentosPage'
 import { BibliotecaPage } from '@/pages/biblioteca/BibliotecaPage'
 
@@ -23,6 +23,7 @@ function App() {
       <HashRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/convite/:token" element={<AcceptInvitePage />} />
           <Route
             element={
               <ProtectedRoute>
@@ -36,7 +37,6 @@ function App() {
             <Route path="cases/:id" element={<CaseDetailPage />} />
             <Route path="cases/:id/pecas" element={<PecasPage />} />
             <Route path="cases/:id/documentos" element={<DocumentosPage />} />
-            <Route path="agenda" element={<AgendaPage />} />
             <Route path="deadlines" element={<DeadlinesPage />} />
             <Route path="biblioteca" element={<BibliotecaPage />} />
             <Route path="admin" element={<AdminPage />} />

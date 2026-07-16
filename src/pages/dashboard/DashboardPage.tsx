@@ -1,22 +1,33 @@
 import {
+  CalendarDays,
   CheckCircle2,
   Clock,
   FileText,
+  Folder,
   FolderKanban,
   Hourglass,
   Image as ImageIcon,
-  Lightbulb,
   Play,
   Sparkles,
-  Workflow,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
 import { deadlinesService } from '@/services/deadlines.service'
 import { useAuthStore } from '@/store/authStore'
+import { relativeTime } from '@/lib/utils'
 import type { Deadline, EtapaPipeline } from '@/types/domain.types'
+
+const ETAPA_LABEL: Record<EtapaPipeline, string> = {
+  cadastro: 'Cadastro',
+  documentos: 'Documentos',
+  pecas: 'Gerar Peças',
+  prazos: 'Prazos',
+  revisao: 'Revisão',
+  protocolo: 'Revisão',
+  atualizacoes: 'Revisão',
+  encerramento: 'Encerramento',
+}
 
 const MISSION_PIPELINE: { key: EtapaPipeline; label: string; icon: typeof FileText }[] = [
   { key: 'cadastro', label: 'Cadastro', icon: CheckCircle2 },
@@ -95,7 +106,6 @@ export function DashboardPage() {
 
   // Estatísticas do painel de IA
   const docsRecebidos = caso?.recommendedDocuments.filter((d) => d.received).length ?? 0
-  const docsPendentes = caso?.recommendedDocuments.filter((d) => !d.received).length ?? 0
 
   // Estatísticas reais para os tiles do Command Center
   const casosAtivos = cases.filter((c) => c.status !== 'arquivado' && c.status !== 'finalizado').length
@@ -104,32 +114,19 @@ export function DashboardPage() {
 
   const missionStageIdx = caso ? Math.max(0, MISSION_PIPELINE.findIndex((s) => s.key === caso.etapaAtual)) : 0
 
-  // ── Motor de Execução: foca no caso aberto mais recentemente pelo advogado;
-  // sem nenhum acesso registrado, cai para o caso marcado como favorito. ──
-  const casoRecente = [...cases]
-    .filter((c) => c.ultimoAcessoEm)
-    .sort((a, b) => new Date(b.ultimoAcessoEm!).getTime() - new Date(a.ultimoAcessoEm!).getTime())[0]
-  const casoFavorito = cases.find((c) => c.favorito)
-  const casoFoco = casoRecente ?? casoFavorito ?? caso
+  // ── Últimos Casos: ordenados pela atividade mais recente (edição ou último acesso) ──
+  const ultimosCasos = [...cases]
+    .sort((a, b) => {
+      const ta = Math.max(new Date(a.updatedAt).getTime(), a.ultimoAcessoEm ? new Date(a.ultimoAcessoEm).getTime() : 0)
+      const tb = Math.max(new Date(b.updatedAt).getTime(), b.ultimoAcessoEm ? new Date(b.ultimoAcessoEm).getTime() : 0)
+      return tb - ta
+    })
+    .slice(0, 4)
 
-  const { data: pecasFoco = [] } = useQuery<{ id: string; categoria: string; createdAt: string }[]>({
-    queryKey: ['pecas', casoFoco?.id],
-    queryFn: () => api.get(`/api/casos/${casoFoco!.id}/pecas`).then((r) => r.data),
-    enabled: !!casoFoco?.id,
-  })
-
-  const feed = casoFoco ? [
-    ...(pecasFoco[0] ? [{
-      time: hhmm(new Date(pecasFoco[0].createdAt)),
-      title: 'Peça gerada',
-      text: `"${pecasFoco[0].categoria}" foi gerada para "${casoFoco.title || casoFoco.clientName}".`,
-    }] : []),
-    {
-      time: hhmm(new Date(casoFoco.updatedAt)),
-      title: casoRecente ? 'Caso aberto recentemente' : casoFavorito ? 'Caso favorito' : 'Caso atualizado',
-      text: `"${casoFoco.title || casoFoco.clientName}" · etapa atual: ${MISSION_PIPELINE.find((s) => s.key === casoFoco.etapaAtual)?.label ?? casoFoco.etapaAtual}.`,
-    },
-  ] : []
+  // ── Próximos Prazos: os mais urgentes primeiro, já ordenados por data ──
+  const proximosPrazos = [...pending]
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 4)
 
   return (
     <div className="home">
@@ -197,12 +194,12 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* ── Motor de Execução ── */}
+        {/* ── Últimos Casos ── */}
         <div className="home-body-col motor-execucao">
           <div className="section-head">
             <div className="section-head-left">
-              <span className="section-icon"><Workflow size={13} /></span>
-              <h3 className="section-title">Motor de Execução</h3>
+              <span className="section-icon"><Folder size={13} /></span>
+              <h3 className="section-title">Últimos Casos</h3>
             </div>
             <span className="live-insights-tag">
               <span className="live-dot" /> Live Insights
@@ -210,21 +207,26 @@ export function DashboardPage() {
           </div>
 
           <div className="motor-feed">
-            {feed.length > 0 ? feed.map((item, i) => (
-              <div key={i} className="motor-item">
-                <span className="motor-dot" />
-                <div className="motor-item-body">
-                  <span className="motor-time">{item.time}</span>
-                  <div className="motor-item-card">
-                    <strong>{item.title}</strong>
-                    {item.text && <p>"{item.text}"</p>}
+            {ultimosCasos.length > 0 ? ultimosCasos.map((c) => {
+              const ultimaAtividade = c.ultimoAcessoEm && new Date(c.ultimoAcessoEm) > new Date(c.updatedAt)
+                ? c.ultimoAcessoEm
+                : c.updatedAt
+              return (
+                <Link key={c.id} to={`/cases/${c.id}`} className="motor-item motor-item-link">
+                  <span className="motor-dot" />
+                  <div className="motor-item-body">
+                    <div className="motor-item-card">
+                      <strong>{c.title || c.clientName}</strong>
+                      <span className="motor-item-meta">{c.category || c.tipoServico || ETAPA_LABEL[c.etapaAtual]}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )) : (
+                  <span className="motor-time motor-time-right">{relativeTime(ultimaAtividade)}</span>
+                </Link>
+              )
+            }) : (
               <div className="panel-empty">
-                <Workflow size={26} />
-                <span>Nenhum caso recente ou favorito para acompanhar ainda.</span>
+                <Folder size={26} />
+                <span>Nenhum caso cadastrado ainda.</span>
               </div>
             )}
           </div>
@@ -264,42 +266,46 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Painel Orbian Intelligence */}
-        <div className="ia-panel orbian-intel">
-          <div className="ia-panel-head">
-            <span className="ia-panel-icon"><Sparkles size={16} /></span>
-            <strong>Orbian Intelligence</strong>
+        {/* Próximos Prazos */}
+        <div className="home-body-col prazos-panel">
+          <div className="section-head">
+            <div className="section-head-left">
+              <span className="section-icon"><CalendarDays size={13} /></span>
+              <h3 className="section-title">Próximos Prazos</h3>
+            </div>
+            <Link to="/deadlines" className="section-link">Ver todos</Link>
           </div>
 
-          <div className="intel-card">
-            <span className="intel-card-label">ALERTA DE PRODUTIVIDADE</span>
-            <p>
-              {prazosUrgentes > 0
-                ? `Detectamos ${prazosUrgentes} prazo${prazosUrgentes > 1 ? 's' : ''} com risco de atraso por falta de documento de terceiros.`
-                : 'Nenhum prazo em risco no momento.'}
-            </p>
-            <button className="intel-card-link" type="button" onClick={() => navigate('/deadlines')}>
-              Enviar notificações automáticas →
-            </button>
-          </div>
-
-          <div className="intel-card">
-            <span className="intel-card-label">INSIGHT ESTRATÉGICO</span>
-            <p>
-              {docsPendentes === 0 && caso
-                ? `Todos os documentos de "${caso.title || caso.clientName}" foram recebidos.`
-                : `Sua operação processou ${docsRecebidos} documento${docsRecebidos === 1 ? '' : 's'} até agora.`}
-            </p>
-          </div>
-
-          <button
-            className="intel-suggestion"
-            type="button"
-            onClick={() => caso && navigate(`/cases/${caso.id}/documentos`)}
-          >
-            <Lightbulb size={15} />
-            <span>Gostaria que eu automatizasse a extração de dados das próximas 5 petições?</span>
-          </button>
+          {proximosPrazos.length > 0 ? (
+            <div className="prazos-panel-list">
+              {proximosPrazos.map((d) => {
+                const label = dayLabel(d.dueDate)
+                const urgente = label === 'Atrasado' || label === 'Hoje'
+                const c = cases.find((x) => x.id === d.caseId)
+                const hasTime = new Date(d.dueDate).getHours() !== 0 || new Date(d.dueDate).getMinutes() !== 0
+                return (
+                  <Link key={d.id} to={`/cases/${d.caseId}`} className={`prazos-panel-item ${urgente ? 'danger' : ''}`}>
+                    <div className="prazos-panel-item-top">
+                      <strong>{d.title}</strong>
+                      <span className={`prazos-panel-badge ${urgente ? 'danger' : ''}`}>
+                        {urgente && <span className="prazo-badge-dot" />}
+                        {label.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="prazos-panel-item-bottom">
+                      <span>{c?.title || c?.clientName || d.caseTitle}</span>
+                      <span>{hasTime ? hhmm(new Date(d.dueDate)) : label === 'Atrasado' || label === 'Hoje' || label === 'Amanhã' ? label : `${d.businessDaysLeft}d úteis`}</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="panel-empty">
+              <CalendarDays size={26} />
+              <span>Nenhum prazo pendente.</span>
+            </div>
+          )}
         </div>
        </aside>
       </div>

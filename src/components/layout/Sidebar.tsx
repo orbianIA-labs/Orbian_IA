@@ -3,7 +3,6 @@ import {
   CalendarClock,
   FolderKanban,
   Home,
-  Plus,
   Settings,
   Zap,
 } from 'lucide-react'
@@ -48,11 +47,6 @@ export function Sidebar() {
           <small>COMMAND CENTER</small>
         </div>
       </div>
-
-      <button className="new-exec-btn" onClick={() => navigate('/cases/new')}>
-        <Plus size={18} />
-        Novo Fluxo
-      </button>
 
       <nav className="nav-list">
         {navItems.map((item) => {

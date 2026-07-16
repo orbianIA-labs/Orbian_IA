@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OrbianLogo } from '@/components/brand/OrbianLogo'
 import { authService } from '@/services/auth.service'
+import { escritorioService } from '@/services/escritorio.service'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 
@@ -44,9 +45,24 @@ function smoothPath(points: { x: number; y: number }[]): string {
 }
 
 const PIPELINE_PATH = smoothPath(PIPELINE)
+const PIPELINE_ANIM_DURATION = 18 // segundos — mesmo valor do <animateMotion>
+
+/** Quando (em segundos, dentro do loop) a bolinha animada passa por cada ponto,
+ * proporcional à distância acumulada ao longo da curva até ali. */
+function computePulseDelays(points: { x: number; y: number }[], duration: number): number[] {
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(b.x - a.x, b.y - a.y)
+  const cumulative = [0]
+  for (let i = 1; i < points.length; i++) cumulative.push(cumulative[i - 1] + dist(points[i - 1], points[i]))
+  const total = cumulative[cumulative.length - 1]
+  return cumulative.map((c) => (c / total) * duration)
+}
+
+const PIPELINE_PULSE_DELAYS = computePulseDelays(PIPELINE, PIPELINE_ANIM_DURATION)
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const conviteToken = searchParams.get('convite') ?? undefined
   const setTokens = useAuthStore((state) => state.setTokens)
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [nome, setNome] = useState('')
@@ -55,16 +71,32 @@ export function LoginPage() {
   const [lembrar, setLembrar] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [tempToken, setTempToken] = useState<string | null>(null)
+  const [codigo2fa, setCodigo2fa] = useState('')
+
+  async function aceitarConviteSeHouver() {
+    if (!conviteToken) return
+    try { await escritorioService.aceitarConvite(conviteToken) } catch { /* convite pode já ter sido usado/expirado */ }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const session =
-        mode === 'login'
-          ? await authService.login(email, senha, lembrar)
-          : await authService.register(nome, email, senha, lembrar)
+      if (mode === 'login') {
+        const result = await authService.login(email, senha, lembrar)
+        if (result.status === 'requires2fa') {
+          setTempToken(result.tempToken)
+          return
+        }
+        setTokens(result.accessToken, result.user)
+        await aceitarConviteSeHouver()
+        navigate('/')
+        return
+      }
+
+      const session = await authService.register(nome, email, senha, lembrar, conviteToken)
       setTokens(session.accessToken, session.user)
       navigate('/')
     } catch {
@@ -74,12 +106,64 @@ export function LoginPage() {
     }
   }
 
+  async function handleVerify2fa(e: React.FormEvent) {
+    e.preventDefault()
+    if (!tempToken) return
+    setError('')
+    setLoading(true)
+    try {
+      const session = await authService.verifyTwoFactor(tempToken, codigo2fa, lembrar)
+      setTokens(session.accessToken, session.user)
+      await aceitarConviteSeHouver()
+      navigate('/')
+    } catch {
+      setError('Código inválido')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <main className="auth-page-split">
       <section className="auth-form-side">
-        <div className="auth-mini-brand">Orbian<span>.AI</span></div>
+        <div className="auth-mini-brand">
+          <OrbianLogo size={22} />
+          <span>Orbian<b>.AI</b></span>
+        </div>
 
         <div className="auth-card">
+          {tempToken ? (
+            <>
+              <header>
+                <h2>Verificação em duas etapas.</h2>
+                <p>Digite o código de 6 dígitos do seu aplicativo autenticador.</p>
+              </header>
+              <form onSubmit={handleVerify2fa} className="form-stack">
+                <label>
+                  Código
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    value={codigo2fa}
+                    onChange={(e) => setCodigo2fa(e.target.value)}
+                    placeholder="000000"
+                    maxLength={6}
+                    required
+                  />
+                </label>
+                {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Verificando...' : 'Verificar'}
+                  {!loading && <ArrowRight size={16} />}
+                </Button>
+                <button type="button" className="auth-forgot-link" onClick={() => { setTempToken(null); setCodigo2fa('') }}>
+                  Voltar para o login
+                </button>
+              </form>
+            </>
+          ) : (
+          <>
           <header>
             <h2>{mode === 'login' ? 'Bem-vindo.' : 'Criar conta.'}</h2>
             <p>{mode === 'login' ? 'Entre para continuar sua operação jurídica.' : 'Comece a organizar sua operação jurídica.'}</p>
@@ -165,6 +249,8 @@ export function LoginPage() {
               {mode === 'login' ? 'Criar conta' : 'Fazer login'}
             </button>
           </p>
+          </>
+          )}
         </div>
 
         <footer className="auth-legal-links">
@@ -184,16 +270,22 @@ export function LoginPage() {
             <path className="pipeline-path" d={PIPELINE_PATH} stroke="var(--line-strong)" strokeWidth="2" strokeLinecap="round" />
 
             <circle className="pipeline-dot-traveler" r="5">
-              <animateMotion dur="18s" repeatCount="indefinite" path={PIPELINE_PATH} />
+              <animateMotion dur={`${PIPELINE_ANIM_DURATION}s`} repeatCount="indefinite" path={PIPELINE_PATH} />
             </circle>
 
-            {PIPELINE.map((p) => {
+            {PIPELINE.map((p, i) => {
               const tooltipWidth = 155
               const tooltipX = Math.min(Math.max(p.x - tooltipWidth / 2, 4), 610 - tooltipWidth - 4)
               return (
                 <g key={p.key} className="pipeline-point" tabIndex={0}>
                   <circle cx={p.x} cy={p.y} r="16" fill="transparent" />
-                  <circle className="pipeline-point-dot" cx={p.x} cy={p.y} r="4.5" />
+                  <circle
+                    className="pipeline-point-dot pipeline-point-dot-pulse"
+                    cx={p.x}
+                    cy={p.y}
+                    r="4.5"
+                    style={{ animationDelay: `${PIPELINE_PULSE_DELAYS[i]}s`, animationDuration: `${PIPELINE_ANIM_DURATION}s` }}
+                  />
                   <text
                     x={p.x}
                     y={p.labelPos === 'above' ? p.y - 14 : p.y + 22}

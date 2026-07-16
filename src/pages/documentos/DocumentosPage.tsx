@@ -111,11 +111,7 @@ export function DocumentosPage() {
             </span>
           ))}
         </nav>
-        <Button
-          onClick={() => navigate(`/cases/${id}/pecas`)}
-          disabled={docs.length === 0}
-          className={docs.length === 0 ? 'button-blocked' : undefined}
-        >
+        <Button onClick={() => navigate(`/cases/${id}/pecas`)}>
           Continuar para Gerar Peças <ArrowRight size={15} />
         </Button>
       </header>

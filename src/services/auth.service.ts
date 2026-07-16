@@ -8,6 +8,16 @@ type AuthApiResponse = {
   usuario: { id: string; nome: string; email: string; plano: string }
 }
 
+type LoginApiResponse = {
+  requiresTwoFactor: boolean
+  tempToken: string | null
+  auth: AuthApiResponse | null
+}
+
+export type LoginResult =
+  | { status: 'ok'; accessToken: string; user: User }
+  | { status: 'requires2fa'; tempToken: string }
+
 function mapUser(dto: AuthApiResponse['usuario']): User {
   return {
     id: dto.id,
@@ -18,14 +28,23 @@ function mapUser(dto: AuthApiResponse['usuario']): User {
 }
 
 export const authService = {
-  async register(nome: string, email: string, senha: string, remember = true) {
-    const { data } = await api.post<AuthApiResponse>('/api/auth/register', { nome, email, senha })
+  async register(nome: string, email: string, senha: string, remember = true, conviteToken?: string) {
+    const { data } = await api.post<AuthApiResponse>('/api/auth/register', { nome, email, senha, conviteToken })
     tokenStorage.set(data.refreshToken, remember)
     return { accessToken: data.accessToken, user: mapUser(data.usuario) }
   },
 
-  async login(email: string, senha: string, remember = true) {
-    const { data } = await api.post<AuthApiResponse>('/api/auth/login', { email, senha })
+  async login(email: string, senha: string, remember = true): Promise<LoginResult> {
+    const { data } = await api.post<LoginApiResponse>('/api/auth/login', { email, senha })
+    if (data.requiresTwoFactor) {
+      return { status: 'requires2fa', tempToken: data.tempToken! }
+    }
+    tokenStorage.set(data.auth!.refreshToken, remember)
+    return { status: 'ok', accessToken: data.auth!.accessToken, user: mapUser(data.auth!.usuario) }
+  },
+
+  async verifyTwoFactor(tempToken: string, codigo: string, remember = true) {
+    const { data } = await api.post<AuthApiResponse>('/api/auth/2fa/verificar', { tempToken, codigo })
     tokenStorage.set(data.refreshToken, remember)
     return { accessToken: data.accessToken, user: mapUser(data.usuario) }
   },
