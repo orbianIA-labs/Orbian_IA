@@ -1,0 +1,28 @@
+name: Deploy PROD (frontend)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run (Produção)
+        run: |
+          gcloud run deploy orbian-frontend-prod \
+            --source . \
+            --region us-central1 \
+            --project orbian-prod \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "BACKEND_URL=https://orbian-api-prod-404814130184.us-central1.run.app" \
+            --quiet

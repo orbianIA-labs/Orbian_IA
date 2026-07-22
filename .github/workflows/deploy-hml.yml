@@ -1,0 +1,20 @@
+name: Deploy HML (frontend)
+
+on:
+  push:
+    branches-ignore: [main, hml-deploy]
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publica a branch atual em hml-deploy
+        run: |
+          git push --force origin HEAD:refs/heads/hml-deploy
