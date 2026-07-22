@@ -4,7 +4,7 @@ import path from 'node:path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/Orbian_IA/',
+  base: process.env.VITE_BASE_PATH ?? '/Orbian_IA/',
   plugins: [react()],
   resolve: {
     alias: {
