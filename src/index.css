@@ -2888,10 +2888,16 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .pipeline-tab.locked svg { color: var(--line-strong); flex-shrink: 0; }
 
 .pipeline-tab-dot {
-  width: 11px;
-  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2.5px solid var(--c-primary);
+  border: 1.5px solid var(--line-strong);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
   flex-shrink: 0;
 }
 
@@ -5296,7 +5302,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .nc-narrative-col > .nc-field { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0; }
 .nc-narrative-col > p.nc-field { flex: 0 0 auto; }
 .nc-narrative-col > .nc-field textarea { flex: 1; min-height: 0; }
-.nc-narrative-col .nc-upload-zone { flex: 1; min-height: 0; justify-content: center; }
 
 .nc-field-pair {
   display: grid;
@@ -5322,43 +5327,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .nc-progress-labels { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .nc-progress-labels span { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .nc-progress-labels strong { font-size: 15px; color: var(--ink-strong); }
-
-/* Upload */
-.nc-upload-zone {
-  margin-top: 6px;
-  padding: 14px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 3px;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: border-color var(--t), background var(--t);
-}
-.nc-upload-zone:hover, .nc-upload-zone.drag { border-color: var(--c-primary); background: var(--accent-soft); }
-.nc-upload-icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--surface-soft);
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-.nc-upload-zone strong { font-size: 12.5px; color: var(--ink-strong); }
-.nc-upload-zone p { font-size: 11px; color: var(--muted); margin: 2px 0 0; line-height: 1.35; }
-.nc-upload-count {
-  margin-top: 8px;
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--c-primary);
-  font-size: 11px;
-  font-weight: 700;
-}
 
 .nc-staged-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .nc-staged-list li {
@@ -5798,6 +5766,17 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   .nc-field-quad { grid-template-columns: 1fr 1fr; }
 }
 
+.nc-field-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.nc-field-trio .nc-field { margin-top: 0; }
+@media (max-width: 900px) {
+  .nc-field-trio { grid-template-columns: 1fr 1fr; }
+}
+
 .new-case-cta-row { justify-content: space-between; align-items: center; }
 .nc-draft-link {
   border: none;
@@ -5900,7 +5879,7 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   font-size: 11px;
   font-weight: 700;
 }
-.case-step-label { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.case-step-label { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.25; }
 .case-step.done .case-step-dot { border-color: var(--success); color: var(--success); background: var(--success-soft); }
 .case-step.done .case-step-label { color: var(--ink); }
 .case-step.active .case-step-dot { border-color: var(--c-primary); background: var(--c-primary); color: #fff; }

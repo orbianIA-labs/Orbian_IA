@@ -2,10 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
-import { FileUp, Star } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
 import { casesService } from '@/services/cases.service'
-import { documentosService } from '@/services/documentos.service'
 import { toast } from '@/store/toastStore'
 
 const AREAS = [
@@ -25,19 +24,11 @@ const PRIORIDADES = [
   { value: 'baixa', label: 'Prioridade Baixa' },
 ] as const
 
-const SITUACOES = [
-  { value: 'a_receber', label: 'A Receber' },
-  { value: 'parcial', label: 'Parcialmente Recebido' },
-  { value: 'recebido', label: 'Recebido' },
-] as const
-
 const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
 
 export function NewCasePage() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
-  const [contrato, setContrato] = useState<File | null>(null)
-  const [dragOver, setDragOver] = useState(false)
   const [caseId, setCaseId] = useState<string | null>(null)
   const [protocolo, setProtocolo] = useState<number | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
@@ -50,17 +41,8 @@ export function NewCasePage() {
     register,
   } = useForm<CreateCaseInput>({
     resolver: zodResolver(createCaseSchema),
-    defaultValues: { area: 'civil', prioridade: 'media', situacao: 'a_receber' },
+    defaultValues: { area: 'civil', prioridade: 'media' },
   })
-
-  async function uploadContratoSeHouver(id: string) {
-    if (!contrato) return
-    try {
-      await documentosService.upload(id, contrato, 'Contrato')
-    } catch {
-      toast('Caso salvo, mas o contrato de honorários falhou no upload. Anexe novamente na tela de documentos.', 'warning')
-    }
-  }
 
   async function onSaveDraft() {
     setError('')
@@ -73,7 +55,6 @@ export function NewCasePage() {
         const caso = await casesService.create(input, { rascunho: true, favorito })
         setCaseId(caso.id)
         setProtocolo(caso.protocolo)
-        await uploadContratoSeHouver(caso.id)
       }
       toast('Rascunho salvo.', 'success')
     } catch {
@@ -88,13 +69,11 @@ export function NewCasePage() {
     try {
       if (caseId) {
         await casesService.update(caseId, { rascunho: false, favorito, ...toPatch(input) })
-        await uploadContratoSeHouver(caseId)
         navigate(`/cases/${caseId}/documentos`)
         return
       }
 
       const caso = await casesService.create(input, { rascunho: false, favorito })
-      await uploadContratoSeHouver(caso.id)
       navigate(`/cases/${caso.id}/documentos`)
     } catch {
       setError('Erro ao criar caso. Verifique os dados e tente novamente.')
@@ -181,7 +160,7 @@ export function NewCasePage() {
               </label>
             </div>
 
-            <div className="nc-field-quad">
+            <div className="nc-field-trio">
               <label className="nc-field">
                 Tribunal
                 <input {...register('tribunal')} placeholder="TJSP" />
@@ -189,10 +168,6 @@ export function NewCasePage() {
               <label className="nc-field">
                 Vara
                 <input {...register('vara')} placeholder="2ª Vara" />
-              </label>
-              <label className="nc-field">
-                Comarca
-                <input {...register('comarca')} placeholder="São Paulo" />
               </label>
               <label className="nc-field">
                 UF
@@ -219,44 +194,6 @@ export function NewCasePage() {
                 <input type="number" step="0.01" min="0" {...register('honorarios', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder="R$ 0,00" />
               </label>
             </div>
-
-            <div className="nc-field-pair">
-              <label className="nc-field">
-                Situação
-                <select {...register('situacao')}>
-                  {SITUACOES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </label>
-              <label className="nc-field">
-                Data Prevista
-                <input type="date" {...register('dataPrevista')} />
-              </label>
-            </div>
-
-            <label className="nc-field">
-              Já recebido
-              <input type="number" step="0.01" min="0" {...register('valorRecebido', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder="R$ 0,00" />
-            </label>
-
-            <p className="nc-field" style={{ marginTop: 20 }}>Contrato de Honorários</p>
-            <div
-              className={`nc-upload-zone ${dragOver ? 'drag' : ''}`}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files[0]) setContrato(e.dataTransfer.files[0]) }}
-              onClick={() => document.getElementById('nc-contrato-input')?.click()}
-            >
-              <input
-                id="nc-contrato-input"
-                type="file"
-                style={{ display: 'none' }}
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => { if (e.target.files?.[0]) setContrato(e.target.files[0]); e.target.value = '' }}
-              />
-              <span className="nc-upload-icon"><FileUp size={18} /></span>
-              <strong>{contrato ? contrato.name : 'Arraste ou clique para upload'}</strong>
-              <p>PDF, DOCX (máx. 10MB)</p>
-            </div>
           </section>
         </div>
 
@@ -281,15 +218,12 @@ function toPatch(input: CreateCaseInput) {
     tribunal: input.tribunal || null,
     instancia: input.instancia || null,
     vara: input.vara || null,
-    comarca: input.comarca || null,
     uf: input.uf || null,
     areaJuridica: input.area,
     categoria: input.flow || null,
     tipoServico: input.tipoServico || null,
     prioridade: input.prioridade || null,
     statusInicial: input.statusInicial || null,
-    situacao: input.situacao || null,
-    dataPrevista: input.dataPrevista || null,
     reuNome: input.reuNome || null,
     reuCpfCnpj: input.reuCpfCnpj || null,
     reuAdvogado: input.reuAdvogado || null,
@@ -297,6 +231,5 @@ function toPatch(input: CreateCaseInput) {
     pedidosProvidencias: input.pedidosProvidencias || null,
     valorCausa: input.valorCausa,
     honorarios: input.honorarios,
-    valorRecebido: input.valorRecebido,
   }
 }
