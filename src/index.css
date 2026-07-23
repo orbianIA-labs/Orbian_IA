@@ -5879,7 +5879,7 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   font-size: 11px;
   font-weight: 700;
 }
-.case-step-label { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.25; }
+.case-step-label { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .case-step.done .case-step-dot { border-color: var(--success); color: var(--success); background: var(--success-soft); }
 .case-step.done .case-step-label { color: var(--ink); }
 .case-step.active .case-step-dot { border-color: var(--c-primary); background: var(--c-primary); color: #fff; }
@@ -6286,7 +6286,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .case-flow-head { display: flex; align-items: center; justify-content: space-between; }
 .case-flow-pct { font-size: 12px; font-weight: 700; color: var(--c-primary); }
 .case-stepper-compact .case-step-dot { width: 34px; height: 34px; font-size: 12px; border-radius: 11px; }
-.case-stepper-compact .case-step-label { font-size: 9.5px; }
 .case-stepper-compact .case-step:not(:first-child)::before { top: 17px; }
 
 /* ── Próxima ação ── */

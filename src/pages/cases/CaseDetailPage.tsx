@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, Archive, CheckCircle2, Circle, Copy,
-  FileText, Lightbulb, Link2, Lock, Pencil, PenLine, Play, Plus,
+  AlertTriangle, Archive, CheckCircle2, Circle, Clock, Copy, Eye,
+  FileText, Flag, Lightbulb, Link2, Lock, Pencil, PenLine, Play, Plus,
   Rocket, Share2, ShieldCheck, Sparkles, Star, Upload, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -76,13 +76,13 @@ interface PecaGerada {
   id: string; casoId: string; categoria: string; conteudo: string; versao: number; createdAt: string
 }
 
-const PIPELINE: { key: EtapaPipeline; label: string }[] = [
-  { key: 'cadastro',     label: 'Cadastro' },
-  { key: 'documentos',   label: 'Documentos' },
-  { key: 'pecas',        label: 'Gerar Peças' },
-  { key: 'prazos',       label: 'Prazos' },
-  { key: 'revisao',      label: 'Revisão' },
-  { key: 'encerramento', label: 'Finalização' },
+const PIPELINE: { key: EtapaPipeline; label: string; icon: typeof Pencil }[] = [
+  { key: 'cadastro',     label: 'Cadastro',     icon: Pencil },
+  { key: 'documentos',   label: 'Documentos',   icon: Upload },
+  { key: 'pecas',        label: 'Gerar Peças',  icon: FileText },
+  { key: 'prazos',       label: 'Prazos',       icon: Clock },
+  { key: 'revisao',      label: 'Revisão',      icon: Eye },
+  { key: 'encerramento', label: 'Finalização',  icon: Flag },
 ]
 
 const DOC_TIPOS = ['Petição Inicial', 'Procuração', 'Contrato', 'Documentos pessoais', 'Comprovantes', 'Conversas', 'Outros anexos']
@@ -385,12 +385,13 @@ export function CaseDetailPage() {
             const active = idx === currentPipelineIdx
             const locked = idx > currentPipelineIdx
             const cls = ['case-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+            const StageIcon = stage.icon
             return (
-              <div key={stage.key} className={cls}>
+              <div key={stage.key} className={cls} title={stage.label}>
                 <span className="case-step-dot">
                   {done ? <CheckCircle2 size={14} /> : locked ? <Lock size={11} /> : idx + 1}
                 </span>
-                <span className="case-step-label">{stage.label}</span>
+                <span className="case-step-label"><StageIcon size={13} /></span>
               </div>
             )
           })}
@@ -769,12 +770,13 @@ export function CaseDetailPage() {
                 const active = idx === currentPipelineIdx
                 const locked = idx > currentPipelineIdx
                 const cls = ['case-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+                const StageIcon = stage.icon
                 return (
-                  <div key={stage.key} className={cls}>
+                  <div key={stage.key} className={cls} title={stage.label}>
                     <span className="case-step-dot">
                       {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={10} /> : idx + 1}
                     </span>
-                    <span className="case-step-label">{stage.label}</span>
+                    <span className="case-step-label"><StageIcon size={11} /></span>
                   </div>
                 )
               })}
