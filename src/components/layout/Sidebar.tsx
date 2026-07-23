@@ -43,7 +43,7 @@ export function Sidebar() {
           <Zap size={18} fill="currentColor" />
         </span>
         <div>
-          <strong>Orbian.AI</strong>
+          <strong>Orbian</strong>
           <small>COMMAND CENTER</small>
         </div>
       </div>

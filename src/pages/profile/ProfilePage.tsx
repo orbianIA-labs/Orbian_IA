@@ -464,7 +464,7 @@ function SegurancaSection({ onSair }: { onSair: () => void }) {
       <div className="settings-danger-row">
         <div>
           <strong>Encerrar sessão</strong>
-          <p>Você será desconectado da Orbian.AI neste dispositivo.</p>
+          <p>Você será desconectado da Orbian neste dispositivo.</p>
         </div>
         <Button variant="secondary" onClick={onSair}>
           <LogOut size={15} /> Sair

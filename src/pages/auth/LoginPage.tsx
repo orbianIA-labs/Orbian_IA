@@ -128,7 +128,7 @@ export function LoginPage() {
       <section className="auth-form-side">
         <div className="auth-mini-brand">
           <OrbianLogo size={22} />
-          <span>Orbian<b>.AI</b></span>
+          <span>Orbian</span>
         </div>
 
         <div className="auth-card">

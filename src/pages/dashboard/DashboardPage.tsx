@@ -311,7 +311,7 @@ export function DashboardPage() {
       </div>
 
       <footer className="dashboard-footer">
-        <span>© {new Date().getFullYear()} Orbian.AI - O Sistema Operacional da Advocacia.</span>
+        <span>© {new Date().getFullYear()} Orbian - O Sistema Operacional da Advocacia.</span>
         <div className="dashboard-footer-links">
           <a href="#">Privacidade</a>
           <a href="#">Termos</a>
