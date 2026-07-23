@@ -179,16 +179,22 @@ export function PecasPage() {
     URL.revokeObjectURL(url)
   }
 
-  function exportarPdf() {
+  async function exportarPdf() {
     if (!pecaSelecionada) return
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(`<html><head><meta charset="utf-8"/><title>${pecaSelecionada.categoria}</title>
-      <style>body{font-family:Georgia,serif;line-height:1.6;max-width:720px;margin:40px auto;padding:0 24px;color:#111}</style>
-      </head><body>${editedContent}</body></html>`)
-    win.document.close()
-    win.focus()
-    win.print()
+    const container = document.createElement('div')
+    container.innerHTML = editedContent
+    container.style.cssText = 'font-family:Georgia,serif;line-height:1.6;max-width:720px;color:#111;padding:0 24px'
+    const html2pdf = (await import('html2pdf.js')).default
+    await html2pdf()
+      .set({
+        margin: 15,
+        filename: `${pecaSelecionada.categoria.replace(/\s+/g, '_')}_v${pecaSelecionada.versao}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(container)
+      .save()
   }
 
   // A IA aplica a instrução diretamente no conteúdo da peça (não devolve só um texto para copiar).
