@@ -50,7 +50,7 @@ export function NewCasePage() {
     defaultValues: {
       area: 'civil',
       prioridade: 'media',
-      honorariosTipo: 'fixo',
+      honorariosTipo: 'percentual',
       clienteId: searchParams.get('clienteId') || undefined,
       clientName: searchParams.get('clienteNome') || '',
     },
@@ -255,7 +255,7 @@ export function NewCasePage() {
             <div className="nc-field-pair">
               <label className="nc-field">
                 Tipo de honorários
-                <select {...register('honorariosTipo')} defaultValue="fixo">
+                <select {...register('honorariosTipo')} defaultValue="percentual">
                   <option value="fixo">Fixo (R$)</option>
                   <option value="percentual">Percentual (% do valor da causa)</option>
                 </select>
