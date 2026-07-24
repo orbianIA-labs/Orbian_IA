@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { OrbianEditor } from '@/components/editor/OrbianEditor'
 import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
+import { escritorioService } from '@/services/escritorio.service'
 import { usuariosService } from '@/services/usuarios.service'
 import { toast } from '@/store/toastStore'
 import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
@@ -33,7 +34,7 @@ interface TemplatePeca {
 const TIPOS_PECA = [
   'Contestação', 'Petição Inicial', 'Réplica', 'Manifestação',
   'Embargos de Declaração', 'Agravo de Instrumento', 'Apelação',
-  'Recurso Ordinário', 'Mandado de Segurança', 'Outros',
+  'Recurso Ordinário', 'Mandado de Segurança', 'Alvará', 'Outros',
 ]
 
 type ToggleKey = 'fortalecer' | 'jurisprudencia' | 'clareza' | 'contraArgumentacao'
@@ -60,6 +61,9 @@ export function PecasPage() {
   const [categoria, setCategoria] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [instrucoes, setInstrucoes] = useState('')
+  const [dadosBancarios, setDadosBancarios] = useState({ banco: '', agencia: '', conta: '', tipoConta: 'Corrente', titular: '', cpfCnpjTitular: '' })
+  const [leiInput, setLeiInput] = useState('')
+  const [mostrarLeiInput, setMostrarLeiInput] = useState(false)
   const [pecaSelecionada, setPecaSelecionada] = useState<PecaGerada | null>(null)
   const [editedContent, setEditedContent] = useState('')
   const [copilotPrompt, setCopilotPrompt] = useState('')
@@ -96,6 +100,23 @@ export function PecasPage() {
     enabled: !!casoId,
   })
 
+  const { data: escritorio } = useQuery({
+    queryKey: ['escritorio'],
+    queryFn: () => escritorioService.obter(),
+  })
+
+  function timbreHtml() {
+    if (!escritorio?.logoUrl) return ''
+    const align = escritorio.timbrePosicao === 'esquerda' ? 'left' : escritorio.timbrePosicao === 'direita' ? 'right' : 'center'
+    return `<div style="text-align:${align};margin-bottom:20px;"><img src="${escritorio.logoUrl}" style="max-height:70px;max-width:220px;" /></div>`
+  }
+
+  function rodapeHtml() {
+    if (!escritorio || (!escritorio.endereco && !escritorio.telefone)) return ''
+    const linha = [escritorio.nome, escritorio.endereco, escritorio.telefone].filter(Boolean).join(' · ')
+    return `<div style="margin-top:32px;padding-top:10px;border-top:1px solid #ccc;font-size:11px;color:#666;text-align:center;">${linha}</div>`
+  }
+
   const { data: pecas = [], isLoading } = useQuery<PecaGerada[]>({
     queryKey: ['pecas', casoId],
     queryFn: () => api.get(`/api/casos/${casoId}/pecas`).then((r) => r.data),
@@ -115,13 +136,28 @@ export function PecasPage() {
     if (pecaSelecionada) setMostrarNovaPeca(false)
   }, [pecaSelecionada])
 
+  function instrucoesCompletas() {
+    const partes = [instrucoes]
+    if (categoria === 'Alvará') {
+      const { banco, agencia, conta, tipoConta, titular, cpfCnpjTitular } = dadosBancarios
+      if (banco || conta) {
+        partes.push(
+          `Inclua os dados bancários para expedição do alvará: Banco: ${banco || '[não informado]'}, ` +
+          `Agência: ${agencia || '[não informado]'}, Conta ${tipoConta}: ${conta || '[não informado]'}, ` +
+          `Titular: ${titular || '[não informado]'}, CPF/CNPJ do titular: ${cpfCnpjTitular || '[não informado]'}.`,
+        )
+      }
+    }
+    return partes.filter(Boolean).join(' ') || null
+  }
+
   const gerar = useMutation({
     mutationFn: () =>
       api.post<PecaGerada>(`/api/casos/${casoId}/pecas/gerar`, {
         casoId,
         categoria,
         descricaoSolicitacao: categoria,
-        instrucoesAdicionais: instrucoes || null,
+        instrucoesAdicionais: instrucoesCompletas(),
         templateId: templateId || null,
       }).then((r) => r.data),
     onSuccess: (peca) => {
@@ -130,6 +166,7 @@ export function PecasPage() {
       setCategoria('')
       setTemplateId('')
       setInstrucoes('')
+      setDadosBancarios({ banco: '', agencia: '', conta: '', tipoConta: 'Corrente', titular: '', cpfCnpjTitular: '' })
     },
   })
 
@@ -170,7 +207,7 @@ export function PecasPage() {
 
   function exportarWord() {
     if (!pecaSelecionada) return
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body>${editedContent}</body></html>`
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body>${timbreHtml()}${editedContent}${rodapeHtml()}</body></html>`
     const blob = new Blob([html], { type: 'application/msword' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -183,7 +220,7 @@ export function PecasPage() {
   async function exportarPdf() {
     if (!pecaSelecionada) return
     const container = document.createElement('div')
-    container.innerHTML = editedContent
+    container.innerHTML = timbreHtml() + editedContent + rodapeHtml()
     container.style.cssText = 'font-family:Georgia,serif;line-height:1.6;max-width:720px;color:#111;padding:0 24px'
     const html2pdf = (await import('html2pdf.js')).default
     await html2pdf()
@@ -271,6 +308,23 @@ export function PecasPage() {
             <option value="">Selecione o tipo...</option>
             {TIPOS_PECA.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
+
+          {categoria === 'Alvará' && (
+            <div className="pecas-dados-bancarios">
+              <p style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Dados bancários para o alvará</p>
+              <div className="pecas-dados-bancarios-grid">
+                <input placeholder="Banco" value={dadosBancarios.banco} onChange={(e) => setDadosBancarios({ ...dadosBancarios, banco: e.target.value })} />
+                <input placeholder="Agência" value={dadosBancarios.agencia} onChange={(e) => setDadosBancarios({ ...dadosBancarios, agencia: e.target.value })} />
+                <input placeholder="Conta" value={dadosBancarios.conta} onChange={(e) => setDadosBancarios({ ...dadosBancarios, conta: e.target.value })} />
+                <select value={dadosBancarios.tipoConta} onChange={(e) => setDadosBancarios({ ...dadosBancarios, tipoConta: e.target.value })}>
+                  <option value="Corrente">Conta Corrente</option>
+                  <option value="Poupança">Conta Poupança</option>
+                </select>
+                <input placeholder="Titular" value={dadosBancarios.titular} onChange={(e) => setDadosBancarios({ ...dadosBancarios, titular: e.target.value })} />
+                <input placeholder="CPF/CNPJ do titular" value={dadosBancarios.cpfCnpjTitular} onChange={(e) => setDadosBancarios({ ...dadosBancarios, cpfCnpjTitular: e.target.value })} />
+              </div>
+            </div>
+          )}
 
           {categoria && templates.length > 0 && (
             <>
@@ -516,7 +570,31 @@ export function PecasPage() {
                   <button disabled={gerando} onClick={() => executarAcaoRapida('Insira jurisprudência aplicável na Fundamentação Jurídica da peça.')}>
                     <Scale size={13} /> Inserir jurisprudência
                   </button>
+                  <button disabled={gerando} onClick={() => setMostrarLeiInput((v) => !v)}>
+                    <Scale size={13} /> Adicionar lei
+                  </button>
                 </div>
+
+                {mostrarLeiInput && (
+                  <div className="copilot-lei-row">
+                    <input
+                      placeholder="Ex.: Art. 5º, CDC / Lei 8.078/1990"
+                      value={leiInput}
+                      onChange={(e) => setLeiInput(e.target.value)}
+                    />
+                    <Button
+                      style={{ fontSize: 12 }}
+                      disabled={!leiInput.trim() || gerando}
+                      onClick={() => {
+                        executarInstrucao(`Cite e aplique "${leiInput}" no texto da peça, no trecho mais pertinente, com formatação de destaque.`)
+                        setLeiInput('')
+                        setMostrarLeiInput(false)
+                      }}
+                    >
+                      Inserir
+                    </Button>
+                  </div>
+                )}
 
                 {gerando && (
                   <p className="copilot-applying"><Loader2 size={13} className="spin" /> A IA está aplicando a edição na peça...</p>

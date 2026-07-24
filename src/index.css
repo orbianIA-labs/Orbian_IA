@@ -1482,6 +1482,19 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   flex-shrink: 0;
 }
 
+.editor-toolbar-select {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  max-width: 130px;
+}
+
+.peca-destaque { display: inline-block; margin-left: 5ch; }
+
 .editor-toolbar-btn.active {
   background: var(--accent-soft);
   color: var(--c-primary);
@@ -4316,6 +4329,21 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .copilot-quick-actions button:hover:not(:disabled) { border-color: var(--c-primary); background: var(--accent-soft); color: var(--c-primary); }
 .copilot-quick-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 .copilot-quick-actions button svg { flex-shrink: 0; color: var(--c-primary); }
+
+.copilot-lei-row { display: flex; gap: 6px; margin-top: 6px; }
+.copilot-lei-row input {
+  flex: 1; min-width: 0; padding: 0 10px; height: 32px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); font-size: 12.5px;
+}
+
+.pecas-dados-bancarios { margin-bottom: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.pecas-dados-bancarios-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pecas-dados-bancarios-grid input,
+.pecas-dados-bancarios-grid select {
+  padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line); font-size: 12.5px;
+  background: var(--surface); color: var(--ink);
+}
 
 .copilot-input {
   width: 100%;

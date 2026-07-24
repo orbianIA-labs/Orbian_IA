@@ -1,9 +1,12 @@
+import { Extension, Mark } from '@tiptap/core'
 import CharacterCount from '@tiptap/extension-character-count'
+import FontFamily from '@tiptap/extension-font-family'
 import Placeholder from '@tiptap/extension-placeholder'
+import { TextStyle } from '@tiptap/extension-text-style'
 import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import {
-  Bold, Heading1, Heading2, Heading3, Italic, List, ListOrdered,
+  Bold, Heading1, Heading2, Heading3, Indent, Italic, List, ListOrdered,
   Quote, Redo2, Strikethrough, Undo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -14,6 +17,80 @@ type OrbianEditorProps = {
   readOnly?: boolean
   onChange?: (html: string) => void
 }
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType
+      unsetFontSize: () => ReturnType
+    }
+    destaque: {
+      toggleDestaque: () => ReturnType
+    }
+  }
+}
+
+// Extensão local: Tiptap não tem tamanho de fonte nativo, então guardamos como atributo do textStyle.
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addOptions() {
+    return { types: ['textStyle'] }
+  },
+  addGlobalAttributes() {
+    return [{
+      types: this.options.types,
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: (element: HTMLElement) => element.style.fontSize || null,
+          renderHTML: (attributes: { fontSize?: string | null }) => {
+            if (!attributes.fontSize) return {}
+            return { style: `font-size: ${attributes.fontSize}` }
+          },
+        },
+      },
+    }]
+  },
+  addCommands() {
+    return {
+      setFontSize: (fontSize: string) => ({ chain }) => chain().setMark('textStyle', { fontSize }).run(),
+      unsetFontSize: () => ({ chain }) => chain().setMark('textStyle', { fontSize: null }).run(),
+    }
+  },
+})
+
+// Marca "destaque": recuo padrão para trechos de jurisprudência/lei citados na peça.
+const Destaque = Mark.create({
+  name: 'destaque',
+  parseHTML() {
+    return [{ tag: 'span.peca-destaque' }]
+  },
+  renderHTML() {
+    return ['span', { class: 'peca-destaque' }, 0]
+  },
+  addCommands() {
+    return {
+      toggleDestaque: () => ({ commands }) => commands.toggleMark(this.name),
+    }
+  },
+})
+
+const FONTES = [
+  { value: '', label: 'Fonte padrão' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+  { value: '"Times New Roman", serif', label: 'Times New Roman' },
+  { value: 'Arial, sans-serif', label: 'Arial' },
+  { value: 'Calibri, sans-serif', label: 'Calibri' },
+]
+
+const TAMANHOS = [
+  { value: '', label: 'Tamanho' },
+  { value: '12px', label: '12' },
+  { value: '14px', label: '14' },
+  { value: '16px', label: '16' },
+  { value: '18px', label: '18' },
+  { value: '20px', label: '20' },
+]
 
 function ToolbarButton({
   active, disabled, label, onClick, children,
@@ -75,6 +152,37 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <ToolbarButton label="Citação" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
         <Quote size={17} />
       </ToolbarButton>
+      <ToolbarButton label="Destaque (recuo para lei/jurisprudência)" active={editor.isActive('destaque')} onClick={() => editor.chain().focus().toggleDestaque().run()}>
+        <Indent size={17} />
+      </ToolbarButton>
+
+      <span className="editor-toolbar-sep" />
+
+      <select
+        className="editor-toolbar-select"
+        title="Fonte"
+        value={editor.getAttributes('textStyle').fontFamily ?? ''}
+        onChange={(e) => {
+          const v = e.target.value
+          if (v) editor.chain().focus().setFontFamily(v).run()
+          else editor.chain().focus().unsetFontFamily().run()
+        }}
+      >
+        {FONTES.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
+      </select>
+
+      <select
+        className="editor-toolbar-select"
+        title="Tamanho da fonte"
+        value={editor.getAttributes('textStyle').fontSize ?? ''}
+        onChange={(e) => {
+          const v = e.target.value
+          if (v) editor.chain().focus().setFontSize(v).run()
+          else editor.chain().focus().unsetFontSize().run()
+        }}
+      >
+        {TAMANHOS.map((t) => <option key={t.label} value={t.value}>{t.label}</option>)}
+      </select>
 
       <span className="editor-toolbar-sep" />
 
@@ -94,6 +202,10 @@ export function OrbianEditor({ content, readOnly = false, onChange }: OrbianEdit
       StarterKit,
       Placeholder.configure({ placeholder: 'Comece a adaptar a peca...' }),
       CharacterCount,
+      TextStyle,
+      FontFamily,
+      FontSize,
+      Destaque,
     ],
     content,
     editable: !readOnly,
