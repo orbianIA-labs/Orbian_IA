@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Star } from 'lucide-react'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
-import { casesService } from '@/services/cases.service'
+import { casesService, type ClienteBusca } from '@/services/cases.service'
 import { toast } from '@/store/toastStore'
 
 const AREAS = [
@@ -28,21 +28,48 @@ const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revi
 
 export function NewCasePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [error, setError] = useState('')
   const [caseId, setCaseId] = useState<string | null>(null)
   const [protocolo, setProtocolo] = useState<number | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
   const [favorito, setFavorito] = useState(false)
+  const [clienteQuery, setClienteQuery] = useState('')
+  const [clienteSugestoes, setClienteSugestoes] = useState<ClienteBusca[]>([])
+  const [mostrarPreliminar, setMostrarPreliminar] = useState(false)
 
   const {
     formState: { errors, isSubmitting },
     getValues,
     handleSubmit,
     register,
+    setValue,
+    watch,
   } = useForm<CreateCaseInput>({
     resolver: zodResolver(createCaseSchema),
-    defaultValues: { area: 'civil', prioridade: 'media' },
+    defaultValues: {
+      area: 'civil',
+      prioridade: 'media',
+      honorariosTipo: 'fixo',
+      clienteId: searchParams.get('clienteId') || undefined,
+      clientName: searchParams.get('clienteNome') || '',
+    },
   })
+
+  useEffect(() => {
+    if (!clienteQuery || getValues('clienteId')) { setClienteSugestoes([]); return }
+    const t = setTimeout(() => {
+      casesService.searchClientes(clienteQuery).then(setClienteSugestoes).catch(() => setClienteSugestoes([]))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [clienteQuery, getValues])
+
+  const honorariosTipo = watch('honorariosTipo')
+  const valorCausa = watch('valorCausa')
+  const honorarios = watch('honorarios')
+  const honorariosCalculado = honorariosTipo === 'percentual' && valorCausa && honorarios
+    ? (valorCausa * honorarios) / 100
+    : null
 
   async function onSaveDraft(silencioso = false) {
     setError('')
@@ -125,10 +152,36 @@ export function NewCasePage() {
             <p className="new-case-card-sub">Dados essenciais para identificação da nova operação jurídica.</p>
 
             <div className="nc-field-pair">
-              <label className="nc-field">
+              <label className="nc-field nc-cliente-field">
                 Cliente *
-                <input {...register('clientName')} placeholder="Nome ou CPF/CNPJ" />
+                <input
+                  {...register('clientName')}
+                  placeholder="Nome ou CPF/CNPJ"
+                  autoComplete="off"
+                  onChange={(e) => {
+                    setValue('clientName', e.target.value)
+                    setValue('clienteId', undefined)
+                    setClienteQuery(e.target.value)
+                  }}
+                />
                 {errors.clientName && <small>{errors.clientName.message}</small>}
+                {clienteSugestoes.length > 0 && (
+                  <ul className="nc-cliente-suggestions">
+                    {clienteSugestoes.map((c) => (
+                      <li
+                        key={c.id}
+                        onClick={() => {
+                          setValue('clientName', c.nome)
+                          setValue('clienteId', c.id)
+                          setClienteSugestoes([])
+                        }}
+                      >
+                        {c.nome}{c.cpfCnpj ? ` · ${c.cpfCnpj}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {watch('clienteId') && <small className="nc-cliente-hint">Cliente existente selecionado — este será um novo processo para ele.</small>}
               </label>
               <label className="nc-field">
                 Parte Contrária
@@ -195,10 +248,44 @@ export function NewCasePage() {
                 <input type="number" step="0.01" min="0" {...register('valorCausa', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder="R$ 0,00" />
               </label>
               <label className="nc-field">
-                Honorários
-                <input type="number" step="0.01" min="0" {...register('honorarios', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder="R$ 0,00" />
+                Honorários {honorariosTipo === 'percentual' ? '(%)' : '(R$)'}
+                <input type="number" step="0.01" min="0" {...register('honorarios', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder={honorariosTipo === 'percentual' ? '% do valor da causa' : 'R$ 0,00'} />
               </label>
             </div>
+            <div className="nc-field-pair">
+              <label className="nc-field">
+                Tipo de honorários
+                <select {...register('honorariosTipo')} defaultValue="fixo">
+                  <option value="fixo">Fixo (R$)</option>
+                  <option value="percentual">Percentual (% do valor da causa)</option>
+                </select>
+              </label>
+              {honorariosCalculado !== null && (
+                <p className="nc-honorarios-preview">
+                  Valor estimado: <strong>R$ {honorariosCalculado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                </p>
+              )}
+            </div>
+
+            <div className="nc-especiais-row">
+              <label className="nc-checkbox-inline">
+                <input type="checkbox" {...register('pedidoGratuidadeJustica')} /> Gratuidade de Justiça
+              </label>
+              <label className="nc-checkbox-inline">
+                <input type="checkbox" {...register('pedidoTutelaUrgencia')} /> Tutela de Urgência
+              </label>
+              {!mostrarPreliminar && (
+                <button type="button" className="nc-add-preliminar-btn" onClick={() => setMostrarPreliminar(true)}>
+                  + Adicionar preliminar
+                </button>
+              )}
+            </div>
+            {mostrarPreliminar && (
+              <label className="nc-field">
+                Preliminar
+                <textarea rows={3} {...register('textoPreliminar')} placeholder="Descreva a preliminar a ser arguida antes do mérito..." />
+              </label>
+            )}
           </section>
         </div>
 
@@ -239,5 +326,9 @@ function toPatch(input: CreateCaseInput) {
     pedidosProvidencias: input.pedidosProvidencias || null,
     valorCausa: input.valorCausa,
     honorarios: input.honorarios,
+    honorariosTipo: input.honorariosTipo,
+    pedidoGratuidadeJustica: input.pedidoGratuidadeJustica ?? false,
+    pedidoTutelaUrgencia: input.pedidoTutelaUrgencia ?? false,
+    textoPreliminar: input.textoPreliminar || null,
   }
 }

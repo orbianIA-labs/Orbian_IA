@@ -73,11 +73,16 @@ export type LegalCase = {
   reuAdvogado?: string
   resumoFatos?: string
   pedidosProvidencias?: string
+  clienteId: string
   claimValue: number
   fees: number
+  feesType: 'fixo' | 'percentual'
   received: number
   pending: number
   expectedProfit: number
+  pedidoGratuidadeJustica: boolean
+  pedidoTutelaUrgencia: boolean
+  textoPreliminar?: string
   recommendedDocuments: Array<{ name: string; received: boolean }>
   createdAt: string
   updatedAt: string

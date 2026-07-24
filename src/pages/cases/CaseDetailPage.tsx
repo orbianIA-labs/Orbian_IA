@@ -359,6 +359,14 @@ export function CaseDetailPage() {
           <button className="case-icon-btn" aria-label="Editar caso" title="Editar caso" onClick={startEdit}>
             <Pencil size={16} />
           </button>
+          <button
+            className="case-icon-btn"
+            aria-label="Novo processo para este cliente"
+            title="Novo processo para este cliente"
+            onClick={() => navigate(`/cases/new?clienteId=${legalCase.clienteId}&clienteNome=${encodeURIComponent(legalCase.clientName)}`)}
+          >
+            <Plus size={16} />
+          </button>
           {nextStage ? (
             <Button
               className="case-primary-cta"

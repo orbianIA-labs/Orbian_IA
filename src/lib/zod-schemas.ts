@@ -23,6 +23,7 @@ export const createCaseSchema = z.object({
   dataPrevista: z.string().optional(),
 
   // Cliente (autor)
+  clienteId: z.string().optional(),
   clientName: z.string().min(2, 'Informe o nome do cliente'),
   clientCpf: z.string().optional(),
   clientEmail: z.string().email('Email inválido').optional().or(z.literal('')),
@@ -40,7 +41,13 @@ export const createCaseSchema = z.object({
   // Financeiro
   valorCausa: optionalMoney,
   honorarios: optionalMoney,
+  honorariosTipo: z.enum(['fixo', 'percentual']).optional(),
   valorRecebido: optionalMoney,
+
+  // Pedidos especiais (reaproveitados na geração de peças)
+  pedidoGratuidadeJustica: z.boolean().optional(),
+  pedidoTutelaUrgencia: z.boolean().optional(),
+  textoPreliminar: z.string().optional(),
 
   flow: z.string().optional(),
 })

@@ -32,8 +32,12 @@ type CasoResponse = {
   pedidosProvidencias: string | null
   valorCausa: number
   honorarios: number
+  honorariosTipo: string
   valorRecebido: number
   pendente: number
+  pedidoGratuidadeJustica: boolean
+  pedidoTutelaUrgencia: boolean
+  textoPreliminar: string | null
   createdAt: string
   updatedAt: string
 }
@@ -73,11 +77,16 @@ function mapCaso(c: CasoResponse): LegalCase {
     reuAdvogado: c.reuAdvogado ?? undefined,
     resumoFatos: c.resumoFatos ?? undefined,
     pedidosProvidencias: c.pedidosProvidencias ?? undefined,
+    clienteId: c.clienteId,
     claimValue: c.valorCausa ?? 0,
     fees: c.honorarios ?? 0,
+    feesType: (c.honorariosTipo === 'percentual' ? 'percentual' : 'fixo'),
     received: c.valorRecebido ?? 0,
     pending: c.pendente ?? 0,
     expectedProfit: c.honorarios ?? 0,
+    pedidoGratuidadeJustica: c.pedidoGratuidadeJustica ?? false,
+    pedidoTutelaUrgencia: c.pedidoTutelaUrgencia ?? false,
+    textoPreliminar: c.textoPreliminar ?? undefined,
     recommendedDocuments: [],
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
@@ -114,10 +123,21 @@ export type UpdateCasePatch = {
   pedidosProvidencias?: string | null
   valorCausa?: number
   honorarios?: number
+  honorariosTipo?: 'fixo' | 'percentual'
   valorRecebido?: number
+  pedidoGratuidadeJustica?: boolean
+  pedidoTutelaUrgencia?: boolean
+  textoPreliminar?: string | null
 }
 
+export type ClienteBusca = { id: string; nome: string; cpfCnpj: string | null }
+
 export const casesService = {
+  async searchClientes(q: string): Promise<ClienteBusca[]> {
+    const { data } = await api.get<ClienteBusca[]>('/api/clientes', { params: { q } })
+    return data
+  },
+
   async list(filters: CaseFilters = {}): Promise<LegalCase[]> {
     const { data } = await api.get<CasoResponse[]>('/api/casos', { params: filters })
     return data.map(mapCaso)
@@ -129,15 +149,19 @@ export const casesService = {
   },
 
   async create(input: CreateCaseInput, opts: { rascunho?: boolean; favorito?: boolean } = {}): Promise<LegalCase> {
-    const { data: cliente } = await api.post<{ id: string }>('/api/clientes', {
-      nome: input.clientName,
-      cpfCnpj: input.clientCpf || null,
-      telefone: input.clientPhone || null,
-      email: input.clientEmail || null,
-    })
+    let clienteId = input.clienteId
+    if (!clienteId) {
+      const { data: cliente } = await api.post<{ id: string }>('/api/clientes', {
+        nome: input.clientName,
+        cpfCnpj: input.clientCpf || null,
+        telefone: input.clientPhone || null,
+        email: input.clientEmail || null,
+      })
+      clienteId = cliente.id
+    }
 
     const { data: caso } = await api.post<CasoResponse>('/api/casos', {
-      clienteId: cliente.id,
+      clienteId,
       numeroProcesso: input.caseNumber || null,
       tribunal: input.tribunal || null,
       instancia: input.instancia || null,
@@ -160,7 +184,11 @@ export const casesService = {
       pedidosProvidencias: input.pedidosProvidencias || null,
       valorCausa: input.valorCausa ?? null,
       honorarios: input.honorarios ?? null,
+      honorariosTipo: input.honorariosTipo || null,
       valorRecebido: input.valorRecebido ?? null,
+      pedidoGratuidadeJustica: input.pedidoGratuidadeJustica ?? false,
+      pedidoTutelaUrgencia: input.pedidoTutelaUrgencia ?? false,
+      textoPreliminar: input.textoPreliminar || null,
     })
 
     return mapCaso(caso)
