@@ -5609,6 +5609,24 @@ progress::-webkit-progress-value {
 }
 .case-stage-head p { margin-top: 3px; font-size: 12.5px; color: var(--muted); }
 
+.case-stepper-row { display: flex; align-items: center; gap: 8px; flex: 1; }
+.case-stepper-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: var(--t);
+}
+.case-stepper-arrow:hover:not(:disabled) { border-color: var(--c-primary); color: var(--c-primary); }
+.case-stepper-arrow:disabled { opacity: 0.35; cursor: not-allowed; }
+
 .case-stepper { display: flex; align-items: flex-start; flex: 1; }
 .case-step { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
 .case-step:not(:first-child)::before {

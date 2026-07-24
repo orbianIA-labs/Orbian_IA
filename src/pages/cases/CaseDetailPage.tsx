@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, Archive, CheckCircle2, Circle, Copy, Eye,
+  AlertTriangle, Archive, CheckCircle2, ChevronLeft, ChevronRight, Circle, Copy, Eye,
   FileText, Flag, Lightbulb, Link2, Lock, Pencil, PenLine, Play, Plus,
   Rocket, Share2, ShieldCheck, Sparkles, Star, Upload, Zap,
 } from 'lucide-react'
@@ -86,6 +86,8 @@ export function CaseDetailPage() {
   const uploadTipoRef = useRef('')
   const [mostrarSeletorTipo, setMostrarSeletorTipo] = useState(false)
   const [buscaDoc, setBuscaDoc] = useState('')
+  const [viewOverride, setViewOverride] = useState<EtapaPipeline | null>(null)
+  useEffect(() => { setViewOverride(null) }, [id])
   const user = useAuthStore((s) => s.user)
 
   const { data: legalCase, isLoading } = useQuery({
@@ -123,7 +125,11 @@ export function CaseDetailPage() {
   const avancarEtapa = useMutation({
     mutationFn: (etapa: EtapaPipeline) =>
       casesService.update(id!, etapa === 'encerramento' ? { etapaAtual: etapa, status: 'finalizado' } : { etapaAtual: etapa }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['case', id] })
+      qc.invalidateQueries({ queryKey: ['cases'] })
+      setViewOverride(null)
+    },
   })
 
   const uploadDoc = useMutation({
@@ -165,15 +171,29 @@ export function CaseDetailPage() {
   const canAdvance = currentReq.met
   const nextStage = PIPELINE[currentPipelineIdx + 1] ?? null
 
-  const STAGE_ROUTES: Partial<Record<EtapaPipeline, string>> = {
-    cadastro: `/cases/${id}`,
+  // ── Navegação livre pela pipeline: o usuário pode ir e voltar entre qualquer
+  // etapa já alcançada (idx <= currentPipelineIdx), sem perder o progresso real. ──
+  const NAV_ROUTES: Partial<Record<EtapaPipeline, string>> = {
     documentos: `/cases/${id}/documentos`,
     pecas: `/cases/${id}/pecas`,
   }
+  const viewedIdx = viewOverride ? PIPELINE.findIndex((s) => s.key === viewOverride) : currentPipelineIdx
+  const displayStage = viewedIdx >= 0 ? PIPELINE[viewedIdx] : currentStage
+
   function irParaEtapa(key: EtapaPipeline) {
-    const rota = STAGE_ROUTES[key]
+    const idx = PIPELINE.findIndex((s) => s.key === key)
+    if (idx < 0 || idx > currentPipelineIdx) return // etapa bloqueada, ignora
+    const rota = NAV_ROUTES[key]
     if (rota) navigate(rota)
+    else setViewOverride(key === currentStage.key ? null : key)
   }
+
+  function irParaIdx(idx: number) {
+    const stage = PIPELINE[idx]
+    if (stage) irParaEtapa(stage.key)
+  }
+  const podeVoltarEtapa = viewedIdx > 0
+  const podeAvancarEtapaView = viewedIdx < currentPipelineIdx
 
   const arquivadoManualmente = legalCase?.status === 'arquivado'
   const tempoTotalDias = legalCase
@@ -340,33 +360,53 @@ export function CaseDetailPage() {
       {/* ── Pipeline (stepper numerado) ── */}
       <div className="workspace-pipeline">
         <div className="case-stage-head">
-          <h2>{currentStage.label} <span className="case-stage-badge">STAGE {currentPipelineIdx + 1}</span></h2>
-          {STAGE_SUBTITLE[currentStage.key] && <p>{STAGE_SUBTITLE[currentStage.key]}</p>}
+          <h2>{displayStage.label} <span className="case-stage-badge">STAGE {viewedIdx + 1}</span></h2>
+          {STAGE_SUBTITLE[displayStage.key] && <p>{STAGE_SUBTITLE[displayStage.key]}</p>}
         </div>
         <span className="case-progress-pct">{progressoPct}% concluído</span>
-        <nav className="case-stepper">
-          {PIPELINE.map((stage, idx) => {
-            const done = idx < currentPipelineIdx
-            const active = idx === currentPipelineIdx
-            const locked = idx > currentPipelineIdx
-            const clickable = !locked && !!STAGE_ROUTES[stage.key]
-            const cls = ['case-step', done && 'done', active && 'active', locked && 'locked', clickable && 'clickable'].filter(Boolean).join(' ')
-            const StageIcon = stage.icon
-            return (
-              <div
-                key={stage.key}
-                className={cls}
-                title={stage.label}
-                onClick={clickable ? () => irParaEtapa(stage.key) : undefined}
-              >
-                <span className="case-step-dot">
-                  {done ? <CheckCircle2 size={14} /> : locked ? <Lock size={11} /> : idx + 1}
-                </span>
-                <span className="case-step-label"><StageIcon size={13} /></span>
-              </div>
-            )
-          })}
-        </nav>
+        <div className="case-stepper-row">
+          <button
+            className="case-stepper-arrow"
+            aria-label="Etapa anterior"
+            title="Etapa anterior"
+            disabled={!podeVoltarEtapa}
+            onClick={() => irParaIdx(viewedIdx - 1)}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <nav className="case-stepper">
+            {PIPELINE.map((stage, idx) => {
+              const done = idx < currentPipelineIdx
+              const viewing = idx === viewedIdx
+              const locked = idx > currentPipelineIdx
+              const clickable = !locked
+              const cls = ['case-step', done && 'done', viewing && 'active', locked && 'locked', clickable && 'clickable'].filter(Boolean).join(' ')
+              const StageIcon = stage.icon
+              return (
+                <div
+                  key={stage.key}
+                  className={cls}
+                  title={stage.label}
+                  onClick={clickable ? () => irParaEtapa(stage.key) : undefined}
+                >
+                  <span className="case-step-dot">
+                    {done ? <CheckCircle2 size={14} /> : locked ? <Lock size={11} /> : idx + 1}
+                  </span>
+                  <span className="case-step-label"><StageIcon size={13} /></span>
+                </div>
+              )
+            })}
+          </nav>
+          <button
+            className="case-stepper-arrow"
+            aria-label="Próxima etapa"
+            title="Próxima etapa"
+            disabled={!podeAvancarEtapaView}
+            onClick={() => irParaIdx(viewedIdx + 1)}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
         {nextStage && (
           <div className="pipeline-advance">
             <button
@@ -434,7 +474,7 @@ export function CaseDetailPage() {
 
       {/* ── Corpo do workspace ── */}
       <div className="workspace-body">
-       {currentStage.key === 'revisao' ? (
+       {displayStage.key === 'revisao' ? (
         <div className="review-layout-v2">
 
           {/* RESUMO + CHECKLIST */}
@@ -584,7 +624,7 @@ export function CaseDetailPage() {
             <Button onClick={() => navigate('/cases')}>Voltar para Casos <Play size={13} fill="currentColor" /></Button>
           </div>
         </div>
-       ) : currentStage.key === 'encerramento' ? (
+       ) : displayStage.key === 'encerramento' ? (
         <div className="closing-split">
         <div className="closing-layout-v2 closing-main-col">
           <p className="section-label" style={{ marginBottom: 12 }}>RESUMO DA OPERAÇÃO</p>
@@ -734,10 +774,10 @@ export function CaseDetailPage() {
             <nav className="case-stepper case-stepper-compact">
               {PIPELINE.map((stage, idx) => {
                 const done = idx < currentPipelineIdx
-                const active = idx === currentPipelineIdx
+                const viewing = idx === viewedIdx
                 const locked = idx > currentPipelineIdx
-                const clickable = !locked && !!STAGE_ROUTES[stage.key]
-                const cls = ['case-step', done && 'done', active && 'active', locked && 'locked', clickable && 'clickable'].filter(Boolean).join(' ')
+                const clickable = !locked
+                const cls = ['case-step', done && 'done', viewing && 'active', locked && 'locked', clickable && 'clickable'].filter(Boolean).join(' ')
                 const StageIcon = stage.icon
                 return (
                   <div
