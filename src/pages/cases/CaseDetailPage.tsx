@@ -2,14 +2,13 @@ import { useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, Archive, CheckCircle2, Circle, Clock, Copy, Eye,
+  AlertTriangle, Archive, CheckCircle2, Circle, Copy, Eye,
   FileText, Flag, Lightbulb, Link2, Lock, Pencil, PenLine, Play, Plus,
   Rocket, Share2, ShieldCheck, Sparkles, Star, Upload, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { areaLabel, caseStatusLabel, caseStatusOptions, formatDate, relativeTime } from '@/lib/utils'
 import { casesService, type UpdateCasePatch } from '@/services/cases.service'
-import { deadlinesService } from '@/services/deadlines.service'
 import { documentosService } from '@/services/documentos.service'
 import { toast } from '@/store/toastStore'
 import { useAuthStore } from '@/store/authStore'
@@ -29,7 +28,6 @@ const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
   cadastro: 'Completar cadastro do caso',
   documentos: 'Anexar documentos obrigatórios',
   pecas: 'Gerar petição inicial',
-  prazos: 'Cadastrar prazo do processo',
   revisao: 'Revisar execução',
   protocolo: 'Revisar execução',
   atualizacoes: 'Revisar execução',
@@ -52,20 +50,12 @@ function compactCurrency(v: number) {
   return `R$ ${v.toLocaleString('pt-BR')}`
 }
 
-/** "18:00" quando o prazo tem horário definido; senão "Hoje". */
-function horaPrazo(iso: string) {
-  const d = new Date(iso)
-  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
-  return hasTime ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Hoje'
-}
-
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI']
 
 const STAGE_SUBTITLE: Record<EtapaPipeline, string> = {
   cadastro: 'Preencha os dados essenciais do caso.',
   documentos: 'Anexe os documentos que embasam a peça.',
   pecas: 'Gere a peça jurídica com IA.',
-  prazos: 'Cadastre os prazos do processo.',
   revisao: 'Valide a execução jurídica antes da conclusão.',
   protocolo: '',
   atualizacoes: '',
@@ -80,7 +70,6 @@ const PIPELINE: { key: EtapaPipeline; label: string; icon: typeof Pencil }[] = [
   { key: 'cadastro',     label: 'Cadastro',     icon: Pencil },
   { key: 'documentos',   label: 'Documentos',   icon: Upload },
   { key: 'pecas',        label: 'Gerar Peças',  icon: FileText },
-  { key: 'prazos',       label: 'Prazos',       icon: Clock },
   { key: 'revisao',      label: 'Revisão',      icon: Eye },
   { key: 'encerramento', label: 'Finalização',  icon: Flag },
 ]
@@ -96,8 +85,6 @@ export function CaseDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadTipoRef = useRef('')
   const [mostrarSeletorTipo, setMostrarSeletorTipo] = useState(false)
-  const [addingPrazo, setAddingPrazo] = useState(false)
-  const [prazoForm, setPrazoForm] = useState({ titulo: '', dataVencimento: '' })
   const [buscaDoc, setBuscaDoc] = useState('')
   const user = useAuthStore((s) => s.user)
 
@@ -107,7 +94,6 @@ export function CaseDetailPage() {
     enabled: !!id,
   })
 
-  const { data: allDeadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })
   const { data: pecas = [] } = useQuery<PecaGerada[]>({
     queryKey: ['pecas', id],
     queryFn: () => api.get(`/api/casos/${id}/pecas`).then((r) => r.data),
@@ -145,20 +131,6 @@ export function CaseDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documentos', id] }),
   })
 
-  const criarPrazo = useMutation({
-    mutationFn: () => deadlinesService.create({ casoId: id!, titulo: prazoForm.titulo.trim(), dataVencimento: prazoForm.dataVencimento }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['deadlines'] })
-      setAddingPrazo(false)
-      setPrazoForm({ titulo: '', dataVencimento: '' })
-    },
-  })
-
-  const caseDeadlines = allDeadlines.filter((d) => d.caseId === id)
-  const pendingDeadlines = caseDeadlines.filter((d) => !d.completed)
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-  const proximoDeadline = pendingDeadlines[0]
-
   // ── Gating do pipeline: cada etapa só libera a próxima se o requisito for cumprido ──
   const docCount = documentos.length
   const hasPeca = pecas.length >= 1
@@ -170,8 +142,6 @@ export function CaseDetailPage() {
     cadastro:     { met: true, hint: '' },
     documentos:   { met: true, hint: '' },
     pecas:        { met: hasPeca, hint: 'Gere pelo menos 1 peça para avançar.' },
-    // Prazos ↔ Agenda: só avança com pelo menos 1 prazo cadastrado para o caso.
-    prazos:       { met: caseDeadlines.length > 0, hint: 'Cadastre um prazo (Agenda) para avançar.' },
     revisao:      { met: hasPeca, hint: 'É preciso ter uma peça para revisar.' },
     protocolo:    { met: true, hint: '' },
     atualizacoes: { met: true, hint: '' },
@@ -205,11 +175,7 @@ export function CaseDetailPage() {
     if (rota) navigate(rota)
   }
 
-  // ── Arquivamento: chega por duas portas — o advogado arquivou manualmente,
-  // ou o caso já passou pelo Encerramento e todos os prazos já expiraram. ──
-  const todosPrazosExpirados = caseDeadlines.length > 0 && caseDeadlines.every((d) => new Date(d.dueDate) < new Date())
   const arquivadoManualmente = legalCase?.status === 'arquivado'
-  const mostrarArquivamento = arquivadoManualmente || (currentStage.key === 'encerramento' && todosPrazosExpirados)
   const tempoTotalDias = legalCase
     ? Math.max(1, Math.round((new Date(legalCase.updatedAt).getTime() - new Date(legalCase.createdAt).getTime()) / 86400000))
     : 0
@@ -229,29 +195,10 @@ export function CaseDetailPage() {
   const estruturaCompleta = pecaRevisao ? secoesOkCount === MODULOS_PECA.length : false
   const secoesFaltando = secoesPeca.filter((s) => s.html === null).map((s) => s.nome)
 
-  // ── Visão padrão do workspace: progresso, prazos agrupados, sugestões e atividade real ──
+  // ── Visão padrão do workspace: progresso, sugestões e atividade real ──
   const progressoPct = Math.round((currentPipelineIdx / (PIPELINE.length - 1)) * 100)
 
-  const isHoje = (dueDate: string) => new Date(dueDate).toDateString() === new Date().toDateString()
-  const prazosHoje = pendingDeadlines.filter((d) => isHoje(d.dueDate))
-  const prazosProximos = pendingDeadlines
-    .filter((d) => !isHoje(d.dueDate))
-    .filter((d) => {
-      const dias = Math.ceil((new Date(d.dueDate).getTime() - new Date().getTime()) / 86400000)
-      return dias > 0 && dias <= 7
-    })
-
   const sugestoes: { texto: string; acaoLabel: string; onClick: () => void }[] = []
-  if (proximoDeadline) {
-    const urgente = proximoDeadline.priority === 'critical' || isHoje(proximoDeadline.dueDate)
-    if (urgente) {
-      sugestoes.push({
-        texto: `Prazo "${proximoDeadline.title}" vence ${isHoje(proximoDeadline.dueDate) ? 'hoje' : formatDate(proximoDeadline.dueDate)}.`,
-        acaoLabel: 'VER PRAZOS',
-        onClick: () => navigate('/deadlines'),
-      })
-    }
-  }
   if (podeGerarPecas && !hasPeca) {
     sugestoes.push({
       texto: 'Documentos prontos, mas nenhuma peça foi gerada ainda.',
@@ -615,16 +562,12 @@ export function CaseDetailPage() {
           </div>
 
         </div>
-       ) : mostrarArquivamento ? (
+       ) : arquivadoManualmente ? (
         <div className="closing-layout-v2">
           <div className="closing-hero-v2">
             <span className="closing-hero-icon"><Archive size={26} /></span>
             <h2>Caso Arquivado</h2>
-            <p>
-              {arquivadoManualmente
-                ? 'Este caso foi arquivado manualmente pelo advogado responsável.'
-                : 'Este caso foi arquivado automaticamente: todos os prazos cadastrados já expiraram.'}
-            </p>
+            <p>Este caso foi arquivado manualmente pelo advogado responsável.</p>
           </div>
 
           <div className="closing-summary-grid">
@@ -817,13 +760,11 @@ export function CaseDetailPage() {
             <div className="case-next-action-head">
               <span className="case-next-action-icon"><PenLine size={16} /></span>
               <strong>{PROXIMA_ACAO[currentStage.key]}</strong>
-              {proximoDeadline?.priority === 'critical' && <span className="case-priority-badge">PRIORIDADE ALTA</span>}
             </div>
             <div className="case-next-action-grid">
-              <div><span>MOTIVO</span><strong>{proximoDeadline ? (isHoje(proximoDeadline.dueDate) ? 'Prazo fatal' : 'Prazo próximo') : (currentReq.hint || 'Etapa pendente')}</strong></div>
+              <div><span>MOTIVO</span><strong>{currentReq.hint || 'Etapa pendente'}</strong></div>
               <div><span>RESPONSÁVEL</span><strong>{user?.name?.split(' ')[0] ?? '—'}</strong></div>
               <div><span>IMPACTO</span><strong>{currentReq.hint || 'Avanço do fluxo de execução'}</strong></div>
-              <div><span>PRAZO</span><strong>{proximoDeadline ? (isHoje(proximoDeadline.dueDate) ? 'Hoje' : formatDate(proximoDeadline.dueDate)) : 'Sem prazo definido'}</strong></div>
             </div>
             <button
               className="case-execute-btn"
@@ -833,7 +774,6 @@ export function CaseDetailPage() {
                   if (podeGerarPecas) navigate(`/cases/${id}/pecas`)
                   else toast(bloqueioPecasHint, 'warning')
                 }
-                else if (currentStage.key === 'prazos') setAddingPrazo(true)
               }}
             >
               <Zap size={14} fill="currentColor" /> Executar Agora
@@ -849,9 +789,6 @@ export function CaseDetailPage() {
                 <div className="case-doc-preview-head">
                   <div className="case-doc-preview-title-row">
                     <strong>{pecas[0].categoria.replace(/\s+/g, '_')}_V{pecas[0].versao}</strong>
-                    <Button style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => setAddingPrazo((v) => !v)}>
-                      <Plus size={13} /> Adicionar Prazo
-                    </Button>
                   </div>
                   <div className="case-doc-preview-tags">
                     <span className="case-doc-tag">{pecas[0].categoria}</span>
@@ -930,63 +867,8 @@ export function CaseDetailPage() {
           </div>
         </div>
 
-        {/* ── Coluna direita: prazos, sugestões IA, atividade ── */}
+        {/* ── Coluna direita: sugestões IA, atividade ── */}
         <div className="case-col case-col-right">
-          <div className="panel">
-            <div className="ws-section-header">
-              <p className="section-label" style={{ margin: 0 }}>PRAZOS</p>
-            </div>
-
-            {addingPrazo && (
-              <div className="case-prazo-form">
-                <div className="form-stack">
-                  <label>Título
-                    <input type="text" value={prazoForm.titulo}
-                      onChange={(e) => setPrazoForm((f) => ({ ...f, titulo: e.target.value }))}
-                      placeholder="Ex: Contestação, Audiência..." />
-                  </label>
-                  <label>Data de vencimento
-                    <input type="date" value={prazoForm.dataVencimento}
-                      onChange={(e) => setPrazoForm((f) => ({ ...f, dataVencimento: e.target.value }))} />
-                  </label>
-                  <div className="button-row">
-                    <Button onClick={() => criarPrazo.mutate()}
-                      disabled={!prazoForm.titulo.trim() || !prazoForm.dataVencimento || criarPrazo.isPending}>
-                      {criarPrazo.isPending ? 'Salvando...' : 'Salvar prazo'}
-                    </Button>
-                    <Button variant="secondary" onClick={() => setAddingPrazo(false)}>Cancelar</Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {prazosHoje.length > 0 && (
-              <>
-                <p className="case-prazo-group-label danger">HOJE</p>
-                {prazosHoje.map((d) => (
-                  <div key={d.id} className="case-prazo-item danger">
-                    <strong>{d.title}</strong>
-                    <span>{horaPrazo(d.dueDate)} (Fatal)</span>
-                  </div>
-                ))}
-              </>
-            )}
-            {prazosProximos.length > 0 && (
-              <>
-                <p className="case-prazo-group-label">PRÓXIMOS 7 DIAS</p>
-                {prazosProximos.map((d) => (
-                  <div key={d.id} className="case-prazo-item">
-                    <strong>{d.title}</strong>
-                    <span>{formatDate(d.dueDate)}</span>
-                  </div>
-                ))}
-              </>
-            )}
-            {prazosHoje.length === 0 && prazosProximos.length === 0 && !addingPrazo && (
-              <p style={{ color: 'var(--muted)', fontSize: 13 }}>Nenhum prazo nos próximos 7 dias.</p>
-            )}
-          </div>
-
           <div className="case-ia-suggestions">
             <div className="case-ia-suggestions-head"><Lightbulb size={15} /><strong>Sugestões IA</strong></div>
             {sugestoes.map((s, i) => (

@@ -25,10 +25,9 @@ npm run lint
 
 ## Fluxos cobertos na BETA
 
-- Dashboard operacional com prazos, pecas e casos recentes
+- Dashboard operacional com pecas e casos recentes
 - Casos: listagem, detalhe e cadastro validado com Zod
 - Pecas: biblioteca de templates, wizard inicial e editor Tiptap
-- Prazos: quadro de prazos juridicos
 - Clientes: mensagens prontas para comunicacao
 - Billing: planos Free, Solo e Pro
 - LGPD: consentimento tecnico e pagina de dados do usuario

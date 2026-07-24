@@ -32,7 +32,6 @@ export type EtapaPipeline =
   | 'cadastro'
   | 'documentos'
   | 'pecas'
-  | 'prazos'
   | 'revisao'
   | 'protocolo'
   | 'atualizacoes'
@@ -67,7 +66,6 @@ export type LegalCase = {
   etapaAtual: EtapaPipeline
   progress: number
   nextAction: string
-  nextDeadline?: string
   reuNome?: string
   reuCpfCnpj?: string
   reuAdvogado?: string
@@ -86,21 +84,6 @@ export type LegalCase = {
   recommendedDocuments: Array<{ name: string; received: boolean }>
   createdAt: string
   updatedAt: string
-}
-
-export type DeadlinePriority = 'critical' | 'attention' | 'normal'
-
-export type Deadline = {
-  id: string
-  caseId: string
-  caseTitle: string
-  title: string
-  dueDate: string
-  businessDaysLeft: number
-  priority: DeadlinePriority
-  completed: boolean
-  responsavel: string
-  observacoes: string
 }
 
 export type Movimentacao = {

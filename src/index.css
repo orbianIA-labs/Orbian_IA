@@ -912,8 +912,7 @@ h2 {
 .message-card,
 .form-panel,
 .editor-frame,
-.data-table,
-.deadline-card {
+.data-table {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -946,7 +945,6 @@ h2 {
 .metric-card span,
 .list-row span,
 .table-row span,
-.deadline-card p,
 .message-card span,
 .template-card p,
 .plan-card li,
@@ -979,7 +977,6 @@ h2 {
 .panel-title,
 .list-row,
 .table-row,
-.deadline-card,
 .message-card header,
 .template-card footer {
   display: flex;
@@ -995,8 +992,7 @@ h2 {
 }
 
 .list,
-.message-list,
-.deadline-board {
+.message-list {
   display: grid;
   gap: 12px;
 }
@@ -1322,87 +1318,6 @@ progress::-webkit-progress-value {
 .badge-critical { color: var(--danger); background: var(--danger-soft); }
 .badge-info { color: var(--c-primary-strong); background: var(--accent-soft); }
 
-/* ── Prazos: agrupamento por urgência (Hoje / Próximos 7 dias / Próximos 30 dias) ── */
-.deadlines-page { height: 100%; }
-.deadlines-subtitle { color: var(--muted); font-size: 13.5px; }
-
-.deadlines-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-.deadlines-scroll::-webkit-scrollbar { display: none; }
-
-.deadlines-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-  align-items: start;
-}
-
-.deadlines-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.deadlines-group-head h3 { font-size: 14px; font-weight: 700; color: var(--ink-strong); }
-.deadlines-group-count {
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 11.5px;
-  font-weight: 700;
-}
-
-.deadlines-group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.deadline-item {
-  display: block;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--c-primary);
-  border-radius: var(--radius-sm);
-  color: inherit;
-  transition: border-color var(--t), background var(--t);
-}
-.deadline-item:hover { background: var(--surface-soft); }
-.deadline-item.done { border-left-color: var(--success); opacity: 0.7; }
-
-.deadline-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.deadline-item-top strong { font-size: 14px; font-weight: 700; color: var(--ink-strong); }
-
-.deadline-item-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
-p.deadline-item-client { margin: 0 0 4px; font-size: 12.5px; color: var(--muted); }
-p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0 12px; font-size: 11.5px; color: var(--muted); }
-
-.deadline-item-icons { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 8px; }
-.deadline-item-cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  height: 34px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--c-primary);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--t);
-}
-.deadline-item-cta:hover { background: var(--c-primary-strong); }
-
-.deadlines-group-done .deadline-item strong { text-decoration: line-through; color: var(--muted); }
-
 .message-card p {
   line-height: 1.65;
 }
@@ -1531,14 +1446,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .list-row.active {
   border-color: var(--c-primary);
   background: var(--accent-soft);
-}
-
-.deadline-row-critical strong {
-  color: var(--danger);
-}
-
-.deadline-row-attention strong {
-  color: var(--warning);
 }
 
 @keyframes spin {
@@ -2031,30 +1938,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   gap: 1px;
 }
 
-.prazo-item {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-  cursor: pointer;
-}
-
-.prazo-item:last-child { border-bottom: none; }
-
-.prazo-date-col { flex-shrink: 0; width: 64px; }
-
-.prazo-date-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.prazo-date-label.today { color: var(--danger); }
-
-.prazo-info strong { display: block; font-size: 13px; font-weight: 600; }
-.prazo-info span { font-size: 12px; color: var(--muted); }
-
 .tip-card {
   display: flex;
   gap: 10px;
@@ -2124,16 +2007,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .exec-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 2px; }
 .exec-card-meta h2 { font-size: 20px; margin-bottom: 2px; }
 .exec-case { font-size: 13px; color: var(--muted); }
-
-.exec-deadline-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--line);
-}
 
 .metric-mini-list { display: flex; flex-direction: column; gap: 12px; }
 .metric-mini { display: flex; gap: 8px; align-items: baseline; }
@@ -2342,97 +2215,17 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .badge-normal { color: var(--muted); background: var(--surface-soft); }
 
 /* ============================================================================
-   PRAZOS — tabela de execução
+   BIBLIOTECA — cards de estatística
    ========================================================================== */
-.prazos-page {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.prazos-page-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.prazos-page-header h1 { font-size: 24px; margin-bottom: 2px; }
-.prazos-page-header p { color: var(--muted); font-size: 13.5px; }
-
-.prazos-stat-row {
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-.prazos-stat {
+.biblioteca-stat {
   padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
 }
-.prazos-stat span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
-.prazos-stat strong { font-size: 24px; font-weight: 800; color: var(--ink-strong); }
-.prazos-stat strong.danger { color: var(--danger); }
-.prazos-stat strong.success { color: var(--success); }
-
-.prazos-table {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-.prazos-table-head {
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 2fr 1fr 1.2fr 1.4fr 1fr 100px;
-  gap: 12px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-soft);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.prazos-table-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.prazos-table-body::-webkit-scrollbar { display: none; }
-.prazos-table-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1.2fr 1.4fr 1fr 100px;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--line);
-  transition: background var(--t);
-}
-.prazos-table-row:last-child { border-bottom: none; }
-.prazos-table-row:hover { background: var(--surface-soft); }
-.prazos-case-cell strong { font-size: 13px; color: var(--ink-strong); }
-.prazos-table-row .muted { font-size: 12.5px; color: var(--muted); }
-.prazos-deadline { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
-.prazos-deadline.overdue { color: var(--danger); }
-.prazos-status-badge {
-  justify-self: start;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-}
-.prazos-status-badge.status-critical { background: var(--danger-soft); color: var(--danger); }
-.prazos-status-badge.status-today { background: var(--warning-soft); color: var(--warning); }
-.prazos-status-badge.status-week { background: var(--accent-soft); color: var(--c-primary); }
-.prazos-status-badge.status-done { background: var(--success-soft); color: var(--success); }
-.prazos-status-badge.status-normal { background: var(--surface-soft); color: var(--muted); }
+.biblioteca-stat span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+.biblioteca-stat strong { font-size: 24px; font-weight: 800; color: var(--ink-strong); }
 
 /* ============================================================================
    TOPBAR — melhorias
@@ -2721,74 +2514,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   overflow: hidden;
 }
 
-/* Timeline prazos */
-.timeline-prazos {
-  display: flex;
-  flex-direction: column;
-}
-
-.timeline-prazo-item {
-  display: flex;
-  gap: 12px;
-  cursor: pointer;
-}
-
-.timeline-prazo-left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 4px;
-  flex-shrink: 0;
-  width: 16px;
-}
-
-.timeline-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--c-primary);
-  flex-shrink: 0;
-}
-
-.timeline-dot.today { background: var(--danger); }
-
-.timeline-line {
-  width: 2px;
-  flex: 1;
-  min-height: 24px;
-  background: var(--line);
-  margin: 4px 0;
-}
-
-.timeline-prazo-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding-bottom: 16px;
-  flex: 1;
-  min-width: 0;
-}
-
-.timeline-date {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-.timeline-date.today { color: var(--danger); }
-
-.timeline-prazo-body strong {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-strong);
-  display: block;
-}
-
-.timeline-case {
-  font-size: 12px;
-  color: var(--muted);
-}
 
 /* Step track (dot + line side by side) */
 .exec-step {
@@ -3206,15 +2931,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   margin: 0;
 }
 
-.caso-recente-prazo {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--c-primary);
-  font-weight: 600;
-  margin: 0;
-}
 
 /* ============================================================================
    WF02 — Workspace layout (CaseDetailPage)
@@ -4811,9 +4527,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .next-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .next-info strong { font-size: 13px; color: var(--ink-strong); font-weight: 700; }
 .next-info span { font-size: 11.5px; color: var(--muted); }
-.next-deadline { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
-.next-deadline-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); }
-.next-deadline time { font-size: 12px; font-weight: 700; color: var(--ink-strong); }
 .next-more { color: var(--muted); flex-shrink: 0; }
 
 .prio-badge {
@@ -5212,14 +4925,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .case-tile-action { font-size: 13px; font-weight: 700; color: var(--c-primary); margin-bottom: 8px; }
 
 .case-tile-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.case-tile-deadline {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--ink);
-}
 .case-tile-time {
   flex-shrink: 0;
   display: flex;
@@ -5640,36 +5345,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .motor-item-link:hover { background: var(--surface-soft); }
 .motor-item-link .motor-item-card { background: none; padding: 8px 8px; }
 .motor-time-right { flex-shrink: 0; margin-bottom: 0; white-space: nowrap; }
-
-/* ── Próximos Prazos ── */
-.prazos-panel { flex: 1; min-height: 0; }
-.prazos-panel-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-.prazos-panel-item {
-  display: block;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--c-primary);
-  background: var(--surface-soft);
-  color: inherit;
-  transition: background var(--t);
-}
-.prazos-panel-item:hover { background: var(--muted-bg); }
-.prazos-panel-item.danger { border-left-color: var(--danger); background: var(--danger-soft); }
-.prazos-panel-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.prazos-panel-item-top strong { font-size: 13px; font-weight: 700; color: var(--ink-strong); }
-.prazos-panel-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--c-primary);
-}
-.prazos-panel-badge.danger { color: var(--danger); }
-.prazo-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--danger); }
-.prazos-panel-item-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--muted); }
 
 /* ── Painel Orbian Intelligence (dark) ── */
 .orbian-intel { gap: 12px; }
@@ -6513,27 +6188,6 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   text-align: center;
 }
 .case-doc-more:hover { text-decoration: underline; }
-
-/* ── Prazos (Hoje / Próximos 7 dias) ── */
-.case-prazo-form { margin: 10px 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); }
-.case-prazo-group-label { margin: 12px 0 8px; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: var(--muted); }
-.case-prazo-group-label.danger { color: var(--danger); }
-.case-prazo-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  margin-bottom: 6px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  font-size: 12.5px;
-}
-.case-prazo-item strong { color: var(--ink-strong); font-weight: 700; }
-.case-prazo-item span { color: var(--muted); font-weight: 600; }
-.case-prazo-item.danger { background: var(--danger-soft); }
-.case-prazo-item.danger strong { color: var(--danger); }
-.case-prazo-item.danger span { color: var(--danger); }
 
 /* ── Sugestões IA (painel claro, distinto do Orbian Intelligence escuro) ── */
 .case-ia-suggestions {

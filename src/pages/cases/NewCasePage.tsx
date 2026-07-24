@@ -24,7 +24,7 @@ const PRIORIDADES = [
   { value: 'baixa', label: 'Prioridade Baixa' },
 ] as const
 
-const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
+const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Revisão', 'Encerramento']
 
 export function NewCasePage() {
   const navigate = useNavigate()

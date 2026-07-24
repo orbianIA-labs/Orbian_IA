@@ -181,12 +181,12 @@ export function PecasPage() {
     },
   })
 
-  const avancarPrazos = useMutation({
+  const avancarRevisao = useMutation({
     mutationFn: async () => {
       if (pecaSelecionada && editedContent !== pecaSelecionada.conteudo) {
         await api.patch(`/api/casos/${casoId}/pecas/${pecaSelecionada.id}`, { conteudo: editedContent })
       }
-      return casesService.update(casoId!, { etapaAtual: 'prazos' })
+      return casesService.update(casoId!, { etapaAtual: 'revisao' })
     },
     onSuccess: () => navigate(`/cases/${casoId}`),
   })
@@ -518,11 +518,11 @@ export function PecasPage() {
                 <Save size={14} /> {salvar.isPending ? 'Salvando...' : 'Salvar'}
               </Button>
               <Button
-                onClick={() => avancarPrazos.mutate()}
-                disabled={avancarPrazos.isPending}
+                onClick={() => avancarRevisao.mutate()}
+                disabled={avancarRevisao.isPending}
                 style={{ fontSize: 13 }}
               >
-                <CheckCircle2 size={14} /> {avancarPrazos.isPending ? 'Avançando...' : 'Avançar para Prazos'}
+                <CheckCircle2 size={14} /> {avancarRevisao.isPending ? 'Avançando...' : 'Avançar para Revisão'}
               </Button>
             </div>
           </div>

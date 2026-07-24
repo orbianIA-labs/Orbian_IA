@@ -54,15 +54,15 @@ export function BibliotecaPage() {
       </div>
 
       <div className="biblioteca-stat-row">
-        <div className="prazos-stat">
+        <div className="biblioteca-stat">
           <span>MODELOS JURÍDICOS</span>
           <strong>{templates.length}</strong>
         </div>
-        <div className="prazos-stat">
+        <div className="biblioteca-stat">
           <span>ÁREAS COBERTAS</span>
           <strong>{new Set(templates.map((t) => t.area).filter(Boolean)).size}</strong>
         </div>
-        <div className="prazos-stat">
+        <div className="biblioteca-stat">
           <span>ATUALIZADOS (30D)</span>
           <strong>{templates.filter((t) => t.updatedAt && Date.now() - new Date(t.updatedAt).getTime() < 30 * 86400000).length}</strong>
         </div>

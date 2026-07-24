@@ -8,7 +8,6 @@ import { AdminPage } from '@/pages/admin/AdminPage'
 import { CaseDetailPage } from '@/pages/cases/CaseDetailPage'
 import { CasesPage } from '@/pages/cases/CasesPage'
 import { NewCasePage } from '@/pages/cases/NewCasePage'
-import { DeadlinesPage } from '@/pages/deadlines/DeadlinesPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { ProfilePage } from '@/pages/profile/ProfilePage'
 import { PecasPage } from '@/pages/pecas/PecasPage'
@@ -37,7 +36,6 @@ function App() {
             <Route path="cases/:id" element={<CaseDetailPage />} />
             <Route path="cases/:id/pecas" element={<PecasPage />} />
             <Route path="cases/:id/documentos" element={<DocumentosPage />} />
-            <Route path="deadlines" element={<DeadlinesPage />} />
             <Route path="biblioteca" element={<BibliotecaPage />} />
             <Route path="admin" element={<AdminPage />} />
             <Route path="profile" element={<ProfilePage />} />

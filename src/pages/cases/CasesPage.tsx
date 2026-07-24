@@ -10,9 +10,8 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
-import { deadlinesService } from '@/services/deadlines.service'
-import { areaLabel, formatDate, relativeTime } from '@/lib/utils'
-import type { CaseStatus, Deadline, EtapaPipeline, LegalCase } from '@/types/domain.types'
+import { areaLabel, relativeTime } from '@/lib/utils'
+import type { CaseStatus, EtapaPipeline, LegalCase } from '@/types/domain.types'
 
 const TABS = [
   { value: 'em_andamento', label: 'Em Execução' },
@@ -26,7 +25,6 @@ const PROXIMA_ACAO: Record<EtapaPipeline, string> = {
   cadastro: 'Completar cadastro do caso',
   documentos: 'Anexar documentos obrigatórios',
   pecas: 'Gerar petição inicial',
-  prazos: 'Cadastrar prazo do processo',
   revisao: 'Revisar execução',
   protocolo: 'Revisar execução',
   atualizacoes: 'Revisar execução',
@@ -41,12 +39,6 @@ const STATUS_BADGE: Record<CaseStatus, { label: string; cls: string }> = {
   arquivado: { label: 'Arquivado', cls: 'muted' },
 }
 
-function nextDeadlineFor(deadlines: Deadline[], caseId: string) {
-  return deadlines
-    .filter((d) => d.caseId === caseId && !d.completed)
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0] ?? null
-}
-
 function matchesTab(c: LegalCase, tab: (typeof TABS)[number]['value']) {
   if (tab === 'all') return true
   if (tab === 'encerrados') return c.status === 'finalizado'
@@ -59,7 +51,6 @@ export function CasesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { data: cases = [], isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => casesService.list() })
-  const { data: deadlines = [] } = useQuery({ queryKey: ['deadlines'], queryFn: deadlinesService.list })
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -131,7 +122,6 @@ export function CasesPage() {
           </div>
         )}
         {filtered.map((c) => {
-          const next = nextDeadlineFor(deadlines, c.id)
           const acao = PROXIMA_ACAO[c.etapaAtual] ?? PROXIMA_ACAO.cadastro
           const badge = STATUS_BADGE[c.status]
 
@@ -153,11 +143,8 @@ export function CasesPage() {
               <p className="case-tile-action">{acao}</p>
 
               <div className="case-tile-bottom">
-                <span className="case-tile-deadline">
-                  {next ? `${next.title} — ${formatDate(next.dueDate)}` : 'Sem prazos ativos'}
-                </span>
                 <span className="case-tile-time">
-                  {relativeTime(c.updatedAt)}
+                  Atualizado {relativeTime(c.updatedAt)}
                   <ChevronRight size={14} />
                 </span>
               </div>

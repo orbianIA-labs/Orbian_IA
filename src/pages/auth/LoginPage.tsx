@@ -22,7 +22,7 @@ const PIPELINE: PipelinePoint[] = [
   { key: 'caso', label: 'Caso', desc: 'Estruture o caso em minutos', x: 145, y: 35, labelPos: 'above' },
   { key: 'documentos', label: 'Documentos', desc: 'Organize provas e anexos', x: 265, y: 118, labelPos: 'below' },
   { key: 'pecas', label: 'Gerar Peças', desc: 'Peças com IA em segundos', x: 385, y: 92, labelPos: 'below' },
-  { key: 'prazos', label: 'Prazos', desc: 'Nunca perca uma data', x: 480, y: 28, labelPos: 'above' },
+  { key: 'revisao', label: 'Revisão', desc: 'Valide antes de protocolar', x: 480, y: 28, labelPos: 'above' },
   { key: 'conclusao', label: 'Conclusão', desc: 'Feche com auditoria completa', x: 585, y: 82, labelPos: 'below' },
 ]
 

@@ -10,7 +10,7 @@ import { formatDate } from '@/lib/utils'
 const CATEGORIAS = ['Todos', 'Procuração', 'Contratos', 'Petições', 'Decisões', 'Sentenças', 'Recursos', 'Outros'] as const
 type Categoria = (typeof CATEGORIAS)[number]
 
-const PIPELINE_LABELS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
+const PIPELINE_LABELS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Revisão', 'Encerramento']
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`

@@ -12,7 +12,7 @@ const plans = [
     features: [
       '3 casos ativos',
       '2 pecas por mes',
-      'Prazos manuais',
+      'Cadastro de escritorio',
       'Suporte por e-mail',
     ],
     cta: 'Plano atual',
@@ -27,7 +27,7 @@ const plans = [
     features: [
       'Casos ilimitados',
       '30 pecas por mes com IA',
-      'Controle de prazos automatico',
+      'Timbre e fontes personalizadas',
       'Atualizacao de cliente via WhatsApp',
       'Exportacao PDF e Word',
       'Suporte por e-mail',
