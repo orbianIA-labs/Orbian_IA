@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Bot, Building2, ChevronRight, CreditCard, KeyRound, LogOut,
@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/services/auth.service'
 import { usuariosService, type IaPreferencias } from '@/services/usuarios.service'
-import { escritorioService } from '@/services/escritorio.service'
+import { escritorioService, type TimbrePosicao } from '@/services/escritorio.service'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore, type ThemeMode } from '@/store/themeStore'
 import { toast } from '@/store/toastStore'
@@ -36,7 +36,11 @@ export function ProfilePage() {
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
-  const [section, setSection] = useState<SectionKey | null>(null)
+  const [searchParams] = useSearchParams()
+  const sectionParam = searchParams.get('section') as SectionKey | null
+  const [section, setSection] = useState<SectionKey | null>(
+    sectionParam && SECTIONS.some((s) => s.key === sectionParam) ? sectionParam : null,
+  )
 
   async function sair() {
     await authService.logout()
@@ -165,10 +169,16 @@ function ContaSection() {
   )
 }
 
+const TIMBRE_OPTIONS: { value: TimbrePosicao; label: string }[] = [
+  { value: 'esquerda', label: 'Esquerda' },
+  { value: 'centro', label: 'Centro' },
+  { value: 'direita', label: 'Direita' },
+]
+
 function EscritorioSection() {
   const qc = useQueryClient()
   const { data: escritorio, isLoading } = useQuery({ queryKey: ['escritorio'], queryFn: () => escritorioService.obter() })
-  const [form, setForm] = useState({ nome: '', endereco: '', telefone: '', cnpj: '', logoUrl: '' })
+  const [form, setForm] = useState({ nome: '', endereco: '', telefone: '', email: '', cnpj: '', logoUrl: '', timbrePosicao: 'centro' as TimbrePosicao })
   const [carregado, setCarregado] = useState(false)
 
   if (!isLoading && escritorio && !carregado) {
@@ -176,8 +186,10 @@ function EscritorioSection() {
       nome: escritorio.nome,
       endereco: escritorio.endereco ?? '',
       telefone: escritorio.telefone ?? '',
+      email: escritorio.email ?? '',
       cnpj: escritorio.cnpj ?? '',
       logoUrl: escritorio.logoUrl ?? '',
+      timbrePosicao: escritorio.timbrePosicao,
     })
     setCarregado(true)
   }
@@ -187,8 +199,10 @@ function EscritorioSection() {
       nome: form.nome,
       endereco: form.endereco || null,
       telefone: form.telefone || null,
+      email: form.email || null,
       cnpj: form.cnpj || null,
       logoUrl: form.logoUrl || null,
+      timbrePosicao: form.timbrePosicao,
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['escritorio'] }); toast('Escritório salvo.', 'success') },
     onError: () => toast('Não foi possível salvar o escritório.', 'error'),
@@ -199,10 +213,19 @@ function EscritorioSection() {
       <label className="nc-field">Nome do escritório<input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Alves & Associados" /></label>
       <div className="nc-field-pair">
         <label className="nc-field">Telefone<input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></label>
-        <label className="nc-field">CNPJ<input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></label>
+        <label className="nc-field">E-mail<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
       </div>
-      <label className="nc-field">Endereço<input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></label>
-      <label className="nc-field">URL do logo<input value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://..." /></label>
+      <div className="nc-field-pair">
+        <label className="nc-field">CNPJ<input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></label>
+        <label className="nc-field">Endereço<input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></label>
+      </div>
+      <label className="nc-field">URL do logo (timbre)<input value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://..." /></label>
+      <label className="nc-field">
+        Posição do timbre no documento exportado
+        <select value={form.timbrePosicao} onChange={(e) => setForm({ ...form, timbrePosicao: e.target.value as TimbrePosicao })}>
+          {TIMBRE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+      </label>
       <Button onClick={() => salvar.mutate()} disabled={!form.nome || salvar.isPending}>
         {salvar.isPending ? 'Salvando...' : 'Salvar escritório'}
       </Button>

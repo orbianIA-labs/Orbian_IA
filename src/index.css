@@ -4510,6 +4510,13 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   gap: 32px;
 }
 .home-header h1 { font-size: 26px; margin-bottom: 2px; }
+.home-escritorio-link {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+  white-space: nowrap; text-decoration: none;
+}
+.home-escritorio-link:hover { color: var(--c-primary); border-color: var(--c-primary); }
 .home-header p { color: var(--muted); font-size: 13.5px; }
 .home-header p strong { color: var(--ink); font-weight: 700; }
 

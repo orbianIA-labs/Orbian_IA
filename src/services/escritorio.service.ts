@@ -1,12 +1,16 @@
 import api from '@/lib/axios'
 
+export type TimbrePosicao = 'esquerda' | 'centro' | 'direita'
+
 export type Escritorio = {
   id: string
   nome: string
   logoUrl: string | null
   endereco: string | null
   telefone: string | null
+  email: string | null
   cnpj: string | null
+  timbrePosicao: TimbrePosicao
 }
 
 export type AtualizarEscritorioInput = {
@@ -14,7 +18,9 @@ export type AtualizarEscritorioInput = {
   logoUrl?: string | null
   endereco?: string | null
   telefone?: string | null
+  email?: string | null
   cnpj?: string | null
+  timbrePosicao: TimbrePosicao
 }
 
 export type Membro = {

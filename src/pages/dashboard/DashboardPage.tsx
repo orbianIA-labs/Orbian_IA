@@ -1,4 +1,5 @@
 import {
+  Building2,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -132,7 +133,12 @@ export function DashboardPage() {
     <div className="home">
       {/* ── Cabeçalho: saudação + progresso ── */}
       <header className="home-header">
-        <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}.</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}.</h1>
+          <Link to="/profile?section=escritorio" className="home-escritorio-link" title="Cadastro do escritório">
+            <Building2 size={15} /> Escritório
+          </Link>
+        </div>
         <div className="home-progress-row">
           <div className="home-progress-full">
             <div className="progress-track">
