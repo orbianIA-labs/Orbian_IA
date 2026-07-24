@@ -195,6 +195,16 @@ export function CaseDetailPage() {
   const canAdvance = currentReq.met
   const nextStage = PIPELINE[currentPipelineIdx + 1] ?? null
 
+  const STAGE_ROUTES: Partial<Record<EtapaPipeline, string>> = {
+    cadastro: `/cases/${id}`,
+    documentos: `/cases/${id}/documentos`,
+    pecas: `/cases/${id}/pecas`,
+  }
+  function irParaEtapa(key: EtapaPipeline) {
+    const rota = STAGE_ROUTES[key]
+    if (rota) navigate(rota)
+  }
+
   // ── Arquivamento: chega por duas portas — o advogado arquivou manualmente,
   // ou o caso já passou pelo Encerramento e todos os prazos já expiraram. ──
   const todosPrazosExpirados = caseDeadlines.length > 0 && caseDeadlines.every((d) => new Date(d.dueDate) < new Date())
@@ -384,10 +394,16 @@ export function CaseDetailPage() {
             const done = idx < currentPipelineIdx
             const active = idx === currentPipelineIdx
             const locked = idx > currentPipelineIdx
-            const cls = ['case-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+            const clickable = !locked && !!STAGE_ROUTES[stage.key]
+            const cls = ['case-step', done && 'done', active && 'active', locked && 'locked', clickable && 'clickable'].filter(Boolean).join(' ')
             const StageIcon = stage.icon
             return (
-              <div key={stage.key} className={cls} title={stage.label}>
+              <div
+                key={stage.key}
+                className={cls}
+                title={stage.label}
+                onClick={clickable ? () => irParaEtapa(stage.key) : undefined}
+              >
                 <span className="case-step-dot">
                   {done ? <CheckCircle2 size={14} /> : locked ? <Lock size={11} /> : idx + 1}
                 </span>
@@ -769,10 +785,16 @@ export function CaseDetailPage() {
                 const done = idx < currentPipelineIdx
                 const active = idx === currentPipelineIdx
                 const locked = idx > currentPipelineIdx
-                const cls = ['case-step', done && 'done', active && 'active', locked && 'locked'].filter(Boolean).join(' ')
+                const clickable = !locked && !!STAGE_ROUTES[stage.key]
+                const cls = ['case-step', done && 'done', active && 'active', locked && 'locked', clickable && 'clickable'].filter(Boolean).join(' ')
                 const StageIcon = stage.icon
                 return (
-                  <div key={stage.key} className={cls} title={stage.label}>
+                  <div
+                    key={stage.key}
+                    className={cls}
+                    title={stage.label}
+                    onClick={clickable ? () => irParaEtapa(stage.key) : undefined}
+                  >
                     <span className="case-step-dot">
                       {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={10} /> : idx + 1}
                     </span>

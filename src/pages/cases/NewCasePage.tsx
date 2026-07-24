@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
-import { Star } from 'lucide-react'
+import { ArrowLeft, Star } from 'lucide-react'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
 import { casesService } from '@/services/cases.service'
 import { toast } from '@/store/toastStore'
@@ -44,7 +44,7 @@ export function NewCasePage() {
     defaultValues: { area: 'civil', prioridade: 'media' },
   })
 
-  async function onSaveDraft() {
+  async function onSaveDraft(silencioso = false) {
     setError('')
     setSavingDraft(true)
     try {
@@ -56,12 +56,17 @@ export function NewCasePage() {
         setCaseId(caso.id)
         setProtocolo(caso.protocolo)
       }
-      toast('Rascunho salvo.', 'success')
+      if (!silencioso) toast('Rascunho salvo.', 'success')
     } catch {
-      toast('Não foi possível salvar o rascunho.', 'error')
+      if (!silencioso) toast('Não foi possível salvar o rascunho.', 'error')
     } finally {
       setSavingDraft(false)
     }
+  }
+
+  async function onVoltar() {
+    if (getValues('clientName')) await onSaveDraft(true)
+    navigate('/cases')
   }
 
   async function onSubmit(input: CreateCaseInput) {
@@ -200,7 +205,10 @@ export function NewCasePage() {
         {error && <p className="new-case-error">{error}</p>}
 
         <div className="new-case-cta-row">
-          <button type="button" className="nc-draft-link" onClick={onSaveDraft} disabled={savingDraft}>
+          <button type="button" className="nc-draft-link" onClick={onVoltar}>
+            <ArrowLeft size={14} /> Voltar
+          </button>
+          <button type="button" className="nc-draft-link" onClick={() => onSaveDraft()} disabled={savingDraft}>
             {savingDraft ? 'Salvando rascunho...' : 'Salvar Rascunho'}
           </button>
           <button type="submit" className="new-case-cta" disabled={isSubmitting}>

@@ -14,7 +14,7 @@ const navItems = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/cases', label: 'Casos', icon: FolderKanban },
   { to: '/deadlines', label: 'Prazos', icon: CalendarClock },
-  { to: '/biblioteca', label: 'Biblioteca', icon: BookOpen },
+  { to: '/biblioteca', label: 'Modelo de Peças', icon: BookOpen },
   { to: '/profile', label: 'Configurações', icon: Settings },
 ]
 

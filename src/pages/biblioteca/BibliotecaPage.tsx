@@ -45,7 +45,7 @@ export function BibliotecaPage() {
     <div className="biblioteca-page">
       <div className="biblioteca-page-header">
         <div>
-          <h1>Biblioteca</h1>
+          <h1>Modelo de Peças</h1>
           <p>Modelos de referência que aceleram a geração de peças com IA.</p>
         </div>
         <Button>

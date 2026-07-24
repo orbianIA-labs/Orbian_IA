@@ -2883,6 +2883,8 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .pipeline-tab.done svg { color: var(--success); flex-shrink: 0; }
 
 .pipeline-tab.active { color: var(--ink-strong); font-weight: 700; }
+.pipeline-tab.clickable { cursor: pointer; }
+.pipeline-tab.clickable:hover { text-decoration: underline; }
 
 .pipeline-tab.locked { color: var(--line-strong); }
 .pipeline-tab.locked svg { color: var(--line-strong); flex-shrink: 0; }
@@ -3770,7 +3772,8 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 }
 .doc-page-main textarea:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--accent-soft); }
 
-.doc-list-card { flex-shrink: 0; }
+.doc-list-card { flex-shrink: 0; transition: box-shadow .15s, border-color .15s; }
+.doc-list-card.drag-over { box-shadow: 0 0 0 2px var(--c-primary) inset; border-radius: 12px; }
 
 .doc-tabs {
   display: flex;
@@ -4043,6 +4046,23 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
   grid-template-columns: 240px 1fr;
   height: 100%;
   overflow: hidden;
+}
+
+.pecas-layout.expanded {
+  grid-template-columns: 0 1fr;
+}
+
+.pecas-layout.expanded .pecas-sidebar {
+  display: none;
+}
+
+.pecas-layout.expanded .pecas-editor-area {
+  grid-template-columns: 0 1fr 0;
+}
+
+.pecas-layout.expanded .pecas-modules-panel,
+.pecas-layout.expanded .copilot-panel {
+  display: none;
 }
 
 .pecas-sidebar {
@@ -5884,6 +5904,8 @@ p.deadline-item-date { display: flex; align-items: center; gap: 4px; margin: 0 0
 .case-step.done .case-step-label { color: var(--ink); }
 .case-step.active .case-step-dot { border-color: var(--c-primary); background: var(--c-primary); color: #fff; }
 .case-step.active .case-step-label { color: var(--c-primary); font-weight: 700; }
+.case-step.clickable { cursor: pointer; }
+.case-step.clickable:hover .case-step-dot { border-color: var(--c-primary); }
 
 /* ============================================================================
    TELA DE REVISÃO v2 — prévia da peça seção a seção + Orbian Intelligence

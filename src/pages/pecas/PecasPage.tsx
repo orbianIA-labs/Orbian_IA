@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Bot, CheckCircle2, Circle, Copy, Download,
-  FileText, Layers, Loader2, Plus, Save, Scale, Sparkles, Trash2, Wand2,
+  FileText, Layers, Loader2, Maximize2, Minimize2, Plus, Save, Scale, Sparkles, Trash2, Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { OrbianEditor } from '@/components/editor/OrbianEditor'
@@ -86,6 +86,7 @@ export function PecasPage() {
     setTogglesCarregados(true)
   }, [iaPreferencias, togglesCarregados])
   const [moduloAtivo, setModuloAtivo] = useState<string | null>(null)
+  const [expandido, setExpandido] = useState(false)
   const [mostrarNovaPeca, setMostrarNovaPeca] = useState(true)
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
@@ -239,7 +240,7 @@ export function PecasPage() {
     : null
 
   return (
-    <div className="pecas-layout">
+    <div className={`pecas-layout ${expandido ? 'expanded' : ''}`}>
       {/* ── Painel esquerdo: seleção de peças ── */}
       <aside className="pecas-sidebar">
         <div className="pecas-sidebar-header">
@@ -407,6 +408,14 @@ export function PecasPage() {
                 </Button>
                 <Button variant="secondary" style={{ fontSize: 12 }} onClick={exportarPdf}>
                   <Download size={13} /> PDF
+                </Button>
+                <Button
+                  variant="secondary"
+                  style={{ fontSize: 12 }}
+                  onClick={() => setExpandido((v) => !v)}
+                  title={expandido ? 'Restaurar layout' : 'Visualizar peça inteira'}
+                >
+                  {expandido ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
                 </Button>
               </div>
             </div>

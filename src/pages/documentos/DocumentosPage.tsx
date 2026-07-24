@@ -30,6 +30,7 @@ export function DocumentosPage() {
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [contexto, setContexto] = useState('')
+  const [dragOver, setDragOver] = useState(false)
 
   const { data: legalCase } = useQuery({
     queryKey: ['case', id],
@@ -76,10 +77,19 @@ export function DocumentosPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['case', id] }),
   })
 
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
+  function handleFiles(files: File[]) {
     if (files.length) upload.mutate(files)
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    handleFiles(Array.from(e.target.files ?? []))
     e.target.value = ''
+  }
+
+  function onDrop(e: React.DragEvent<HTMLElement>) {
+    e.preventDefault()
+    setDragOver(false)
+    handleFiles(Array.from(e.dataTransfer.files ?? []))
   }
 
   function toggleAI(docId: string) {
@@ -104,12 +114,22 @@ export function DocumentosPage() {
           <ArrowLeft size={16} /> Voltar ao caso
         </button>
         <nav className="pipeline-tabs">
-          {PIPELINE_LABELS.map((label, i) => (
-            <span key={label} className={`pipeline-tab ${i < 1 ? 'done' : i === 1 ? 'active' : 'locked'}`}>
-              {i < 1 ? <CheckCircle2 size={13} /> : <span className="pipeline-tab-dot">{i + 1}</span>}
-              {label}
-            </span>
-          ))}
+          {PIPELINE_LABELS.map((label, i) => {
+            const done = i < 1
+            const active = i === 1
+            const rota = i === 0 ? `/cases/${id}` : i === 2 ? `/cases/${id}/pecas` : null
+            const clickable = !!rota && (done || active)
+            return (
+              <span
+                key={label}
+                className={`pipeline-tab ${done ? 'done' : active ? 'active' : 'locked'} ${clickable ? 'clickable' : ''}`}
+                onClick={clickable ? () => navigate(rota!) : undefined}
+              >
+                {done ? <CheckCircle2 size={13} /> : <span className="pipeline-tab-dot">{i + 1}</span>}
+                {label}
+              </span>
+            )
+          })}
         </nav>
         <Button onClick={() => navigate(`/cases/${id}/pecas`)}>
           Continuar para Gerar Peças <ArrowRight size={15} />
@@ -141,7 +161,12 @@ export function DocumentosPage() {
 
           {erro && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erro}</p>}
 
-          <section className="new-case-card doc-list-card">
+          <section
+            className={`new-case-card doc-list-card ${dragOver ? 'drag-over' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+          >
             <div className="ws-section-header">
               <div>
                 <p className="section-label-lg" style={{ fontSize: 15 }}>Documentos do Caso</p>
