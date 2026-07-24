@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Bot, CheckCircle2, Circle, Copy, Download,
+  ArrowLeft, Bot, CheckCircle2, ChevronLeft, ChevronRight, Circle, Copy, Download,
   FileText, Layers, Loader2, Maximize2, Minimize2, Plus, Save, Scale, Sparkles, Trash2, Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +13,7 @@ import { escritorioService } from '@/services/escritorio.service'
 import { usuariosService } from '@/services/usuarios.service'
 import { toast } from '@/store/toastStore'
 import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
+import { stageRoute } from '@/lib/pipeline'
 
 interface PecaGerada {
   id: string
@@ -135,6 +136,12 @@ export function PecasPage() {
     setEditorRevision((r) => r + 1)
     if (pecaSelecionada) setMostrarNovaPeca(false)
   }, [pecaSelecionada])
+
+  // Ao entrar (ou voltar) nesta tela, mostra direto a peça mais recente já gerada,
+  // em vez de deixar a área de edição vazia esperando um clique.
+  useEffect(() => {
+    if (!pecaSelecionada && pecas.length > 0) setPecaSelecionada(pecas[0])
+  }, [pecas, pecaSelecionada])
 
   function instrucoesCompletas() {
     const partes = [instrucoes]
@@ -282,7 +289,7 @@ export function PecasPage() {
       <aside className="pecas-sidebar">
         <div className="pecas-sidebar-header">
           <button className="back-btn" onClick={() => navigate(`/cases/${casoId}`)}>
-            <ArrowLeft size={15} /> Voltar
+            <ArrowLeft size={15} /> Voltar ao caso
           </button>
           {caso && (
             <div style={{ marginTop: 8 }}>
@@ -290,6 +297,22 @@ export function PecasPage() {
               <h2 style={{ fontSize: 16 }}>{caso.title || caso.clientName}</h2>
             </div>
           )}
+          <div className="pecas-stage-nav">
+            <button
+              className="pecas-stage-nav-btn"
+              onClick={() => navigate(stageRoute(casoId!, 'documentos'))}
+            >
+              <ChevronLeft size={14} /> Documentos
+            </button>
+            <button
+              className="pecas-stage-nav-btn"
+              disabled={pecas.length === 0}
+              title={pecas.length === 0 ? 'Gere pelo menos 1 peça para revisar' : undefined}
+              onClick={() => navigate(stageRoute(casoId!, 'revisao'))}
+            >
+              Revisão <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
 
         {/* ── Formulário de geração ── */}

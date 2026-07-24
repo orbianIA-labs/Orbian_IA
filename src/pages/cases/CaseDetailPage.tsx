@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, Archive, CheckCircle2, ChevronLeft, ChevronRight, Circle, Copy, Eye,
-  FileText, Flag, Lightbulb, Link2, Lock, Pencil, PenLine, Play, Plus,
+  AlertTriangle, Archive, CheckCircle2, ChevronLeft, ChevronRight, Circle, Copy,
+  FileText, Lightbulb, Link2, Lock, Pencil, PenLine, Play, Plus,
   Rocket, Share2, ShieldCheck, Sparkles, Star, Upload, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/axios'
 import type { CaseStatus, EtapaPipeline } from '@/types/domain.types'
 import { extrairSecaoHtml, MODULOS_PECA } from '@/lib/pecaSections'
+import { PIPELINE } from '@/lib/pipeline'
 
 const STATUS_BADGE_CLASS: Record<CaseStatus, string> = {
   em_andamento: 'badge-success',
@@ -66,19 +67,12 @@ interface PecaGerada {
   id: string; casoId: string; categoria: string; conteudo: string; versao: number; createdAt: string
 }
 
-const PIPELINE: { key: EtapaPipeline; label: string; icon: typeof Pencil }[] = [
-  { key: 'cadastro',     label: 'Cadastro',     icon: Pencil },
-  { key: 'documentos',   label: 'Documentos',   icon: Upload },
-  { key: 'pecas',        label: 'Gerar Peças',  icon: FileText },
-  { key: 'revisao',      label: 'Revisão',      icon: Eye },
-  { key: 'encerramento', label: 'Finalização',  icon: Flag },
-]
-
 const DOC_TIPOS = ['Petição Inicial', 'Procuração', 'Contrato', 'Documentos pessoais', 'Comprovantes', 'Conversas', 'Outros anexos']
 
 export function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const qc = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<UpdateCasePatch>({})
@@ -88,6 +82,15 @@ export function CaseDetailPage() {
   const [buscaDoc, setBuscaDoc] = useState('')
   const [viewOverride, setViewOverride] = useState<EtapaPipeline | null>(null)
   useEffect(() => { setViewOverride(null) }, [id])
+  // Permite chegar direto numa etapa vindo de outra página (ex.: /cases/:id?view=revisao).
+  useEffect(() => {
+    const view = searchParams.get('view') as EtapaPipeline | null
+    if (view && PIPELINE.some((s) => s.key === view)) {
+      setViewOverride(view)
+      setSearchParams((prev) => { prev.delete('view'); return prev }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
   const user = useAuthStore((s) => s.user)
 
   const { data: legalCase, isLoading } = useQuery({

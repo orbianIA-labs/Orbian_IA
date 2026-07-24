@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Download, FileText, Plus, Sparkles, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Lock, Plus, Sparkles, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
 import { documentosService, type Documento } from '@/services/documentos.service'
+import api from '@/lib/axios'
 import { formatDate } from '@/lib/utils'
+import { PIPELINE, reachableIndex, stageRoute } from '@/lib/pipeline'
 
 const CATEGORIAS = ['Todos', 'Procuração', 'Contratos', 'Petições', 'Decisões', 'Sentenças', 'Recursos', 'Outros'] as const
 type Categoria = (typeof CATEGORIAS)[number]
-
-const PIPELINE_LABELS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Revisão', 'Encerramento']
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -47,6 +47,14 @@ export function DocumentosPage() {
     queryFn: () => documentosService.list(id!),
     enabled: !!id,
   })
+
+  const { data: pecas = [] } = useQuery<{ id: string }[]>({
+    queryKey: ['pecas', id],
+    queryFn: () => api.get(`/api/casos/${id}/pecas`).then((r) => r.data),
+    enabled: !!id,
+  })
+  const currentIdx = reachableIndex(legalCase, pecas.length > 0)
+  const stageIdx = PIPELINE.findIndex((s) => s.key === 'documentos')
 
   const upload = useMutation({
     mutationFn: (files: File[]) =>
@@ -113,24 +121,42 @@ export function DocumentosPage() {
         <button className="back-btn" onClick={() => navigate(`/cases/${id}`)}>
           <ArrowLeft size={16} /> Voltar ao caso
         </button>
+        <button
+          className="case-stepper-arrow"
+          aria-label="Etapa anterior"
+          title="Etapa anterior"
+          disabled={stageIdx === 0}
+          onClick={() => navigate(stageRoute(id!, PIPELINE[stageIdx - 1].key))}
+        >
+          <ChevronLeft size={16} />
+        </button>
         <nav className="pipeline-tabs">
-          {PIPELINE_LABELS.map((label, i) => {
-            const done = i < 1
-            const active = i === 1
-            const rota = i === 0 ? `/cases/${id}` : i === 2 ? `/cases/${id}/pecas` : null
-            const clickable = !!rota && (done || active)
+          {PIPELINE.map((stage, i) => {
+            const done = i < stageIdx
+            const active = i === stageIdx
+            const locked = i > currentIdx
+            const clickable = !locked && !active
             return (
               <span
-                key={label}
-                className={`pipeline-tab ${done ? 'done' : active ? 'active' : 'locked'} ${clickable ? 'clickable' : ''}`}
-                onClick={clickable ? () => navigate(rota!) : undefined}
+                key={stage.key}
+                className={`pipeline-tab ${done ? 'done' : active ? 'active' : locked ? 'locked' : ''} ${clickable ? 'clickable' : ''}`}
+                onClick={clickable ? () => navigate(stageRoute(id!, stage.key)) : undefined}
               >
-                {done ? <CheckCircle2 size={13} /> : <span className="pipeline-tab-dot">{i + 1}</span>}
-                {label}
+                {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={11} /> : <span className="pipeline-tab-dot">{i + 1}</span>}
+                {stage.label}
               </span>
             )
           })}
         </nav>
+        <button
+          className="case-stepper-arrow"
+          aria-label="Próxima etapa"
+          title="Próxima etapa"
+          disabled={stageIdx >= currentIdx}
+          onClick={() => navigate(stageRoute(id!, PIPELINE[stageIdx + 1].key))}
+        >
+          <ChevronRight size={16} />
+        </button>
         <Button onClick={() => navigate(`/cases/${id}/pecas`)}>
           Continuar para Gerar Peças <ArrowRight size={15} />
         </Button>

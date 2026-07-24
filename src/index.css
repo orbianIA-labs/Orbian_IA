@@ -3808,6 +3808,24 @@ progress::-webkit-progress-value {
   padding-bottom: 16px;
 }
 
+.pecas-stage-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; }
+.pecas-stage-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--t);
+}
+.pecas-stage-nav-btn:hover:not(:disabled) { border-color: var(--c-primary); color: var(--c-primary); }
+.pecas-stage-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .pecas-gen-form {
   padding: 16px 20px;
   border-bottom: 1px solid var(--line);
