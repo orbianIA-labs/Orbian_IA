@@ -1,18 +1,24 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Bot, Building2, ChevronRight, CreditCard, KeyRound, LogOut,
-  Monitor, Moon, Plus, Shield, ShieldCheck, Sun, Trash2, User, Users,
+  ArrowLeft, Bot, Building2, ChevronRight, CreditCard, Image as ImageIcon, KeyRound, LogOut,
+  Monitor, Moon, Plus, Shield, ShieldCheck, Sun, Trash2, Upload, User, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/services/auth.service'
 import { usuariosService, type IaPreferencias } from '@/services/usuarios.service'
-import { escritorioService, type TimbrePosicao } from '@/services/escritorio.service'
+import { escritorioService, logoUrlDoEscritorio, type TimbrePosicao } from '@/services/escritorio.service'
+import { FONTES, TAMANHOS } from '@/components/editor/OrbianEditor'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore, type ThemeMode } from '@/store/themeStore'
 import { toast } from '@/store/toastStore'
 import { formatDate } from '@/lib/utils'
+
+const UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
 
 type SectionKey = 'conta' | 'escritorio' | 'usuarios' | 'ia' | 'assinatura' | 'seguranca'
 
@@ -94,7 +100,7 @@ export function ProfilePage() {
             </div>
           </>
         ) : (
-          <section className="new-case-card">
+          <section className={`new-case-card ${section === 'escritorio' ? 'new-case-card-escritorio' : ''}`}>
             <button className="settings-back-btn" onClick={() => setSection(null)}>
               <ArrowLeft size={15} /> Voltar
             </button>
@@ -170,65 +176,268 @@ function ContaSection() {
 }
 
 const TIMBRE_OPTIONS: { value: TimbrePosicao; label: string }[] = [
-  { value: 'esquerda', label: 'Esquerda' },
-  { value: 'centro', label: 'Centro' },
-  { value: 'direita', label: 'Direita' },
+  { value: 'superior-esquerda', label: 'Superior esquerda' },
+  { value: 'superior-centro', label: 'Superior centro' },
+  { value: 'superior-direita', label: 'Superior direita' },
+  { value: 'inferior-esquerda', label: 'Inferior esquerda' },
+  { value: 'inferior-direita', label: 'Inferior direita' },
 ]
+
+type EscritorioForm = {
+  nome: string
+  nomeAdvogado: string
+  oab: string
+  ufOab: string
+  cnpj: string
+  email: string
+  telefone: string
+  cidade: string
+  estado: string
+  timbrePosicao: TimbrePosicao
+  fonteFamilia: string
+  fonteTamanho: string
+  rodapeTexto: string
+  rodapeAtivo: boolean
+}
+
+const ESCRITORIO_FORM_VAZIO: EscritorioForm = {
+  nome: '', nomeAdvogado: '', oab: '', ufOab: '', cnpj: '', email: '', telefone: '',
+  cidade: '', estado: '', timbrePosicao: 'superior-centro', fonteFamilia: '', fonteTamanho: '',
+  rodapeTexto: '', rodapeAtivo: true,
+}
 
 function EscritorioSection() {
   const qc = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
   const { data: escritorio, isLoading } = useQuery({ queryKey: ['escritorio'], queryFn: () => escritorioService.obter() })
-  const [form, setForm] = useState({ nome: '', endereco: '', telefone: '', email: '', cnpj: '', logoUrl: '', timbrePosicao: 'centro' as TimbrePosicao })
+  const [form, setForm] = useState<EscritorioForm>(ESCRITORIO_FORM_VAZIO)
   const [carregado, setCarregado] = useState(false)
 
-  if (!isLoading && escritorio && !carregado) {
+  function carregarDoServidor() {
+    if (!escritorio) return
     setForm({
       nome: escritorio.nome,
-      endereco: escritorio.endereco ?? '',
-      telefone: escritorio.telefone ?? '',
-      email: escritorio.email ?? '',
+      nomeAdvogado: escritorio.nomeAdvogado ?? '',
+      oab: escritorio.oab ?? '',
+      ufOab: escritorio.ufOab ?? '',
       cnpj: escritorio.cnpj ?? '',
-      logoUrl: escritorio.logoUrl ?? '',
+      email: escritorio.email ?? '',
+      telefone: escritorio.telefone ?? '',
+      cidade: escritorio.cidade ?? '',
+      estado: escritorio.estado ?? '',
       timbrePosicao: escritorio.timbrePosicao,
+      fonteFamilia: escritorio.fonteFamilia ?? '',
+      fonteTamanho: escritorio.fonteTamanho ?? '',
+      rodapeTexto: escritorio.rodapeTexto ?? '',
+      rodapeAtivo: escritorio.rodapeAtivo,
     })
+  }
+
+  if (!isLoading && escritorio && !carregado) {
+    carregarDoServidor()
     setCarregado(true)
   }
 
   const salvar = useMutation({
     mutationFn: () => escritorioService.salvar({
       nome: form.nome,
-      endereco: form.endereco || null,
-      telefone: form.telefone || null,
-      email: form.email || null,
+      nomeAdvogado: form.nomeAdvogado || null,
+      oab: form.oab || null,
+      ufOab: form.ufOab || null,
       cnpj: form.cnpj || null,
-      logoUrl: form.logoUrl || null,
+      email: form.email || null,
+      telefone: form.telefone || null,
+      cidade: form.cidade || null,
+      estado: form.estado || null,
       timbrePosicao: form.timbrePosicao,
+      fonteFamilia: form.fonteFamilia || null,
+      fonteTamanho: form.fonteTamanho || null,
+      rodapeTexto: form.rodapeTexto || null,
+      rodapeAtivo: form.rodapeAtivo,
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['escritorio'] }); toast('Escritório salvo.', 'success') },
     onError: () => toast('Não foi possível salvar o escritório.', 'error'),
   })
 
+  const uploadLogo = useMutation({
+    mutationFn: (file: File) => escritorioService.uploadLogo(file),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['escritorio'] }); toast('Logo atualizada.', 'success') },
+    onError: () => toast('Não foi possível enviar a imagem. Use PNG, JPEG ou SVG de até 5 MB.', 'error'),
+  })
+
+  const removerLogo = useMutation({
+    mutationFn: () => escritorioService.removerLogo(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['escritorio'] }),
+  })
+
+  function handleLogoFiles(files: File[]) {
+    if (files[0]) uploadLogo.mutate(files[0])
+  }
+
+  const logoAtual = escritorio
+    ? (escritorio.temLogo ? logoUrlDoEscritorio(escritorio.id) : escritorio.logoUrl)
+    : null
+
+  const alinhamentoTimbre = form.timbrePosicao.endsWith('esquerda') ? 'left' : form.timbrePosicao.endsWith('direita') ? 'right' : 'center'
+
   return (
-    <div className="settings-section-body">
-      <label className="nc-field">Nome do escritório<input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Alves & Associados" /></label>
-      <div className="nc-field-pair">
-        <label className="nc-field">Telefone<input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></label>
-        <label className="nc-field">E-mail<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+    <div className="escritorio-section">
+      <div className="escritorio-section-scroll">
+        <p className="section-label-lg" style={{ fontSize: 14 }}>Identificação</p>
+        <div className="nc-field-pair">
+          <label className="nc-field">Nome do advogado<input value={form.nomeAdvogado} onChange={(e) => setForm({ ...form, nomeAdvogado: e.target.value })} /></label>
+          <label className="nc-field">Nome do escritório<input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Alves & Associados" /></label>
+        </div>
+        <div className="nc-field-trio">
+          <label className="nc-field">OAB<input value={form.oab} onChange={(e) => setForm({ ...form, oab: e.target.value })} /></label>
+          <label className="nc-field">
+            UF da OAB
+            <select value={form.ufOab} onChange={(e) => setForm({ ...form, ufOab: e.target.value })}>
+              <option value="">Selecione</option>
+              {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+            </select>
+          </label>
+          <label className="nc-field">CNPJ<input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></label>
+        </div>
+        <div className="nc-field-pair">
+          <label className="nc-field">E-mail<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+          <label className="nc-field">Telefone<input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></label>
+        </div>
+        <div className="nc-field-pair">
+          <label className="nc-field">Cidade<input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></label>
+          <label className="nc-field">
+            Estado
+            <select value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}>
+              <option value="">Selecione</option>
+              {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="settings-divider" />
+
+        <p className="section-label-lg" style={{ fontSize: 14 }}>Timbre da Peça</p>
+        <div
+          className={`escritorio-dropzone ${dragOver ? 'drag-over' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleLogoFiles(Array.from(e.dataTransfer.files ?? [])) }}
+        >
+          {logoAtual ? (
+            <>
+              <img src={logoAtual} alt="Logo do escritório" className="escritorio-logo-preview" />
+              <div className="button-row" style={{ margin: 0 }}>
+                <Button variant="secondary" style={{ fontSize: 12 }} onClick={() => fileInputRef.current?.click()} disabled={uploadLogo.isPending}>
+                  {uploadLogo.isPending ? 'Enviando...' : 'Substituir'}
+                </Button>
+                <Button variant="secondary" style={{ fontSize: 12 }} onClick={() => removerLogo.mutate()} disabled={removerLogo.isPending}>
+                  <Trash2 size={13} /> Remover
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <ImageIcon size={28} style={{ opacity: 0.35 }} />
+              <p style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'center' }}>
+                Arraste uma imagem ou clique para enviar (PNG, JPEG ou SVG, até 5 MB)
+              </p>
+              <Button variant="secondary" style={{ fontSize: 12 }} onClick={() => fileInputRef.current?.click()} disabled={uploadLogo.isPending}>
+                <Upload size={13} /> {uploadLogo.isPending ? 'Enviando...' : 'Selecionar imagem'}
+              </Button>
+            </>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml"
+            style={{ display: 'none' }}
+            onChange={(e) => { handleLogoFiles(Array.from(e.target.files ?? [])); e.target.value = '' }}
+          />
+        </div>
+
+        <div className="escritorio-timbre-grid">
+          {TIMBRE_OPTIONS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              className={`escritorio-timbre-card ${form.timbrePosicao === t.value ? 'active' : ''}`}
+              onClick={() => setForm({ ...form, timbrePosicao: t.value })}
+            >
+              <span className={`escritorio-timbre-thumb pos-${t.value}`} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="settings-divider" />
+
+        <p className="section-label-lg" style={{ fontSize: 14 }}>Tipografia da Peça</p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8 }}>
+          Define o padrão inicial do editor de peças. Você ainda pode trocar a fonte peça por peça.
+        </p>
+        <div className="nc-field-pair">
+          <label className="nc-field">
+            Fonte padrão
+            <select value={form.fonteFamilia} onChange={(e) => setForm({ ...form, fonteFamilia: e.target.value })}>
+              {FONTES.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
+            </select>
+          </label>
+          <label className="nc-field">
+            Tamanho padrão
+            <select value={form.fonteTamanho} onChange={(e) => setForm({ ...form, fonteTamanho: e.target.value })}>
+              {TAMANHOS.map((t) => <option key={t.label} value={t.value}>{t.label}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="settings-divider" />
+
+        <p className="section-label-lg" style={{ fontSize: 14 }}>Rodapé das Peças</p>
+        <label className="settings-toggle-row">
+          <input type="checkbox" checked={form.rodapeAtivo} onChange={(e) => setForm({ ...form, rodapeAtivo: e.target.checked })} />
+          Rodapé ativo nos documentos exportados
+        </label>
+        <label className="nc-field">
+          Texto do rodapé
+          <textarea
+            rows={3}
+            value={form.rodapeTexto}
+            onChange={(e) => setForm({ ...form, rodapeTexto: e.target.value })}
+            placeholder="Endereço completo, telefone, site..."
+          />
+        </label>
+
+        <div className="settings-divider" />
+
+        <p className="section-label-lg" style={{ fontSize: 14 }}>Pré-visualização</p>
+        <div className="escritorio-preview-page">
+          {form.timbrePosicao.startsWith('superior') && (
+            <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
+              {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
+            </div>
+          )}
+          <span className="escritorio-preview-bar" style={{ width: '90%' }} />
+          <span className="escritorio-preview-bar" style={{ width: '70%' }} />
+          <span className="escritorio-preview-bar" style={{ width: '85%' }} />
+          <span className="escritorio-preview-bar" style={{ width: '60%' }} />
+          {form.timbrePosicao.startsWith('inferior') && (
+            <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
+              {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
+            </div>
+          )}
+          {form.rodapeAtivo && <div className="escritorio-preview-footer" />}
+        </div>
       </div>
-      <div className="nc-field-pair">
-        <label className="nc-field">CNPJ<input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></label>
-        <label className="nc-field">Endereço<input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></label>
+
+      <div className="escritorio-section-actions">
+        <Button variant="secondary" onClick={carregarDoServidor} disabled={salvar.isPending}>
+          Cancelar
+        </Button>
+        <Button onClick={() => salvar.mutate()} disabled={!form.nome || salvar.isPending}>
+          {salvar.isPending ? 'Salvando...' : 'Salvar Configurações'}
+        </Button>
       </div>
-      <label className="nc-field">URL do logo (timbre)<input value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://..." /></label>
-      <label className="nc-field">
-        Posição do timbre no documento exportado
-        <select value={form.timbrePosicao} onChange={(e) => setForm({ ...form, timbrePosicao: e.target.value as TimbrePosicao })}>
-          {TIMBRE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
-      </label>
-      <Button onClick={() => salvar.mutate()} disabled={!form.nome || salvar.isPending}>
-        {salvar.isPending ? 'Salvando...' : 'Salvar escritório'}
-      </Button>
     </div>
   )
 }

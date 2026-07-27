@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { OrbianEditor } from '@/components/editor/OrbianEditor'
 import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
-import { escritorioService } from '@/services/escritorio.service'
+import { escritorioService, logoUrlDoEscritorio } from '@/services/escritorio.service'
 import { usuariosService } from '@/services/usuarios.service'
 import { toast } from '@/store/toastStore'
 import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
@@ -106,16 +106,41 @@ export function PecasPage() {
     queryFn: () => escritorioService.obter(),
   })
 
-  function timbreHtml() {
-    if (!escritorio?.logoUrl) return ''
-    const align = escritorio.timbrePosicao === 'esquerda' ? 'left' : escritorio.timbrePosicao === 'direita' ? 'right' : 'center'
-    return `<div style="text-align:${align};margin-bottom:20px;"><img src="${escritorio.logoUrl}" style="max-height:70px;max-width:220px;" /></div>`
+function logoSrc(): string | null {
+    if (!escritorio) return null
+    if (escritorio.temLogo) return logoUrlDoEscritorio(escritorio.id)
+    return escritorio.logoUrl || null
+  }
+
+  function logoHtml(margin: 'margin-bottom' | 'margin-top') {
+    const src = logoSrc()
+    if (!src) return ''
+    const align = escritorio!.timbrePosicao.endsWith('esquerda') ? 'left'
+      : escritorio!.timbrePosicao.endsWith('direita') ? 'right' : 'center'
+    return `<div style="text-align:${align};${margin}:20px;"><img src="${src}" style="max-height:70px;max-width:220px;" /></div>`
+  }
+
+  // Timbre "superior-*" fica acima do conteúdo (como sempre); "inferior-*" passa a ficar perto do rodapé.
+  function timbreSuperiorHtml() {
+    return escritorio?.timbrePosicao.startsWith('superior') ? logoHtml('margin-bottom') : ''
+  }
+
+  function timbreInferiorHtml() {
+    return escritorio?.timbrePosicao.startsWith('inferior') ? logoHtml('margin-top') : ''
   }
 
   function rodapeHtml() {
-    if (!escritorio || (!escritorio.endereco && !escritorio.telefone)) return ''
-    const linha = [escritorio.nome, escritorio.endereco, escritorio.telefone].filter(Boolean).join(' · ')
-    return `<div style="margin-top:32px;padding-top:10px;border-top:1px solid #ccc;font-size:11px;color:#666;text-align:center;">${linha}</div>`
+    if (!escritorio?.rodapeAtivo || !escritorio.rodapeTexto) return ''
+    return `<div style="margin-top:32px;padding-top:10px;border-top:1px solid #ccc;font-size:11px;color:#666;text-align:center;white-space:pre-wrap;">${escritorio.rodapeTexto}</div>`
+  }
+
+  function conteudoComFontePadrao(html: string) {
+    if (!escritorio?.fonteFamilia && !escritorio?.fonteTamanho) return html
+    const style = [
+      escritorio.fonteFamilia ? `font-family:${escritorio.fonteFamilia}` : '',
+      escritorio.fonteTamanho ? `font-size:${escritorio.fonteTamanho}` : '',
+    ].filter(Boolean).join(';')
+    return `<div style="${style}">${html}</div>`
   }
 
   const { data: pecas = [], isLoading } = useQuery<PecaGerada[]>({
@@ -214,7 +239,8 @@ export function PecasPage() {
 
   function exportarWord() {
     if (!pecaSelecionada) return
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body>${timbreHtml()}${editedContent}${rodapeHtml()}</body></html>`
+    const corpo = `${timbreSuperiorHtml()}${conteudoComFontePadrao(editedContent)}${timbreInferiorHtml()}${rodapeHtml()}`
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body>${corpo}</body></html>`
     const blob = new Blob([html], { type: 'application/msword' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -227,7 +253,7 @@ export function PecasPage() {
   async function exportarPdf() {
     if (!pecaSelecionada) return
     const container = document.createElement('div')
-    container.innerHTML = timbreHtml() + editedContent + rodapeHtml()
+    container.innerHTML = timbreSuperiorHtml() + conteudoComFontePadrao(editedContent) + timbreInferiorHtml() + rodapeHtml()
     container.style.cssText = 'font-family:Georgia,serif;line-height:1.6;max-width:720px;color:#111;padding:0 24px'
     const html2pdf = (await import('html2pdf.js')).default
     await html2pdf()
@@ -511,6 +537,8 @@ export function PecasPage() {
                   key={`${pecaSelecionada.id}-${editorRevision}`}
                   content={editedContent}
                   onChange={setEditedContent}
+                  defaultFontFamily={escritorio?.fonteFamilia}
+                  defaultFontSize={escritorio?.fonteTamanho}
                 />
               </div>
             )}

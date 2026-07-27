@@ -16,6 +16,9 @@ type OrbianEditorProps = {
   content: string
   readOnly?: boolean
   onChange?: (html: string) => void
+  /** Padrão do escritório: só pré-preenche o visual, não trava a troca por peça no seletor da toolbar. */
+  defaultFontFamily?: string | null
+  defaultFontSize?: string | null
 }
 
 declare module '@tiptap/core' {
@@ -75,7 +78,7 @@ const Destaque = Mark.create({
   },
 })
 
-const FONTES = [
+export const FONTES = [
   { value: '', label: 'Fonte padrão' },
   { value: 'Georgia, serif', label: 'Georgia' },
   { value: '"Times New Roman", serif', label: 'Times New Roman' },
@@ -83,7 +86,7 @@ const FONTES = [
   { value: 'Calibri, sans-serif', label: 'Calibri' },
 ]
 
-const TAMANHOS = [
+export const TAMANHOS = [
   { value: '', label: 'Tamanho' },
   { value: '12px', label: '12' },
   { value: '14px', label: '14' },
@@ -196,7 +199,9 @@ function Toolbar({ editor }: { editor: Editor | null }) {
   )
 }
 
-export function OrbianEditor({ content, readOnly = false, onChange }: OrbianEditorProps) {
+export function OrbianEditor({
+  content, readOnly = false, onChange, defaultFontFamily, defaultFontSize,
+}: OrbianEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -215,7 +220,14 @@ export function OrbianEditor({ content, readOnly = false, onChange }: OrbianEdit
   return (
     <section className="editor-frame">
       {!readOnly && <Toolbar editor={editor} />}
-      <EditorContent className="Orbian-editor" editor={editor} />
+      <EditorContent
+        className="Orbian-editor"
+        editor={editor}
+        style={{
+          fontFamily: defaultFontFamily || undefined,
+          fontSize: defaultFontSize || undefined,
+        }}
+      />
       {!readOnly && (
         <footer className="editor-footer">{editor?.storage.characterCount.words() ?? 0} palavras</footer>
       )}
