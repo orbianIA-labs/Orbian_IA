@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Bot, Building2, ChevronRight, CreditCard, Image as ImageIcon, KeyRound, LogOut,
-  Monitor, Moon, Plus, Shield, ShieldCheck, Sun, Trash2, Upload, User, Users,
+  Maximize2, Monitor, Moon, Plus, Shield, ShieldCheck, Sun, Trash2, Upload, User, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/services/auth.service'
@@ -210,6 +210,7 @@ function EscritorioSection() {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [previewExpandida, setPreviewExpandida] = useState(false)
   const { data: escritorio, isLoading } = useQuery({ queryKey: ['escritorio'], queryFn: () => escritorioService.obter() })
   const [form, setForm] = useState<EscritorioForm>(ESCRITORIO_FORM_VAZIO)
   const [carregado, setCarregado] = useState(false)
@@ -374,22 +375,28 @@ function EscritorioSection() {
 
         <p className="section-label-lg" style={{ fontSize: 14 }}>Tipografia da Peça</p>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8 }}>
-          Define o padrão inicial do editor de peças. Você ainda pode trocar a fonte peça por peça.
+          Define a fonte usada em todas as peças geradas.
         </p>
-        <div className="nc-field-pair">
-          <label className="nc-field">
-            Fonte padrão
-            <select value={form.fonteFamilia} onChange={(e) => setForm({ ...form, fonteFamilia: e.target.value })}>
-              {FONTES.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
-            </select>
-          </label>
-          <label className="nc-field">
-            Tamanho padrão
-            <select value={form.fonteTamanho} onChange={(e) => setForm({ ...form, fonteTamanho: e.target.value })}>
-              {TAMANHOS.map((t) => <option key={t.label} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
+        <div className="escritorio-fonte-grid">
+          {FONTES.map((f) => (
+            <button
+              key={f.label}
+              type="button"
+              className={`escritorio-fonte-card ${form.fonteFamilia === f.value ? 'active' : ''}`}
+              style={{ fontFamily: f.value }}
+              onClick={() => setForm({ ...form, fonteFamilia: f.value })}
+            >
+              <span className="escritorio-fonte-swatch">Aa</span>
+              {f.label}
+            </button>
+          ))}
         </div>
+        <label className="nc-field">
+          Tamanho padrão
+          <select value={form.fonteTamanho} onChange={(e) => setForm({ ...form, fonteTamanho: e.target.value })}>
+            {TAMANHOS.map((t) => <option key={t.label} value={t.value}>{t.label}</option>)}
+          </select>
+        </label>
 
         <div className="settings-divider" />
 
@@ -410,7 +417,17 @@ function EscritorioSection() {
 
         <div className="settings-divider" />
 
-        <p className="section-label-lg" style={{ fontSize: 14 }}>Pré-visualização</p>
+        <div className="escritorio-preview-header">
+          <p className="section-label-lg" style={{ fontSize: 14, margin: 0 }}>Pré-visualização</p>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Expandir pré-visualização"
+            onClick={() => setPreviewExpandida(true)}
+          >
+            <Maximize2 size={15} />
+          </button>
+        </div>
         <div className="escritorio-preview-page">
           {form.timbrePosicao.startsWith('superior') && (
             <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
@@ -438,6 +455,38 @@ function EscritorioSection() {
           {salvar.isPending ? 'Salvando...' : 'Salvar Configurações'}
         </Button>
       </div>
+
+      {previewExpandida && (
+        <div className="escritorio-preview-modal-overlay" onClick={() => setPreviewExpandida(false)}>
+          <div className="escritorio-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="icon-btn escritorio-preview-modal-close"
+              title="Fechar"
+              onClick={() => setPreviewExpandida(false)}
+            >
+              <X size={16} />
+            </button>
+            <div className="escritorio-preview-page escritorio-preview-page-large">
+              {form.timbrePosicao.startsWith('superior') && (
+                <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
+                  {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
+                </div>
+              )}
+              <span className="escritorio-preview-bar" style={{ width: '90%' }} />
+              <span className="escritorio-preview-bar" style={{ width: '70%' }} />
+              <span className="escritorio-preview-bar" style={{ width: '85%' }} />
+              <span className="escritorio-preview-bar" style={{ width: '60%' }} />
+              {form.timbrePosicao.startsWith('inferior') && (
+                <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
+                  {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
+                </div>
+              )}
+              {form.rodapeAtivo && <div className="escritorio-preview-footer" />}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

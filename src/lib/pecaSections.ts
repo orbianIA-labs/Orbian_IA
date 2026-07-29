@@ -7,10 +7,38 @@ export const MODULOS_PECA = [
   { nome: 'Fechamento', termos: ['fechamento', 'termos em que', 'nestes termos', 'pede deferimento'] },
 ]
 
+// A IA às vezes gera peças em formato híbrido: parágrafos soltos (texto + \n\n),
+// intercalados com tags <h2> reais só nos títulos de seção. Um DOMParser comum trata
+// esse texto solto como nós de texto (não elementos), então `body.children` os ignora
+// por completo — normalizamos aqui envolvendo cada trecho solto em <p> antes de extrair.
+function normalizarBlocos(html: string): string {
+  const partes: string[] = []
+  const regexTitulo = /<h[1-6][^>]*>.*?<\/h[1-6]>/gis
+  let ultimoIndex = 0
+  let match: RegExpExecArray | null
+
+  function empurrarTexto(trecho: string) {
+    trecho.split(/\n\s*\n/).forEach((bloco) => {
+      const texto = bloco.trim()
+      if (!texto) return
+      partes.push(/^<(p|ul|ol|li|blockquote|div)[\s>]/i.test(texto) ? texto : `<p>${texto}</p>`)
+    })
+  }
+
+  while ((match = regexTitulo.exec(html))) {
+    empurrarTexto(html.slice(ultimoIndex, match.index))
+    partes.push(match[0])
+    ultimoIndex = regexTitulo.lastIndex
+  }
+  empurrarTexto(html.slice(ultimoIndex))
+
+  return partes.join('\n')
+}
+
 /** Extrai apenas o trecho de HTML (título + parágrafos) de um módulo específico da peça. */
 export function extrairSecaoHtml(html: string, termos: string[]): string | null {
   if (!html) return null
-  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const doc = new DOMParser().parseFromString(normalizarBlocos(html), 'text/html')
   const blocos = Array.from(doc.body.children)
 
   function ehTitulo(el: Element) {

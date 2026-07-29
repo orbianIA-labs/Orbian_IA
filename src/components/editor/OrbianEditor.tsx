@@ -79,11 +79,12 @@ const Destaque = Mark.create({
 })
 
 export const FONTES = [
-  { value: '', label: 'Fonte padrão' },
   { value: 'Georgia, serif', label: 'Georgia' },
   { value: '"Times New Roman", serif', label: 'Times New Roman' },
   { value: 'Arial, sans-serif', label: 'Arial' },
   { value: 'Calibri, sans-serif', label: 'Calibri' },
+  { value: 'Verdana, sans-serif', label: 'Verdana' },
+  { value: 'Garamond, serif', label: 'Garamond' },
 ]
 
 export const TAMANHOS = [
@@ -158,34 +159,6 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <ToolbarButton label="Destaque (recuo para lei/jurisprudência)" active={editor.isActive('destaque')} onClick={() => editor.chain().focus().toggleDestaque().run()}>
         <Indent size={17} />
       </ToolbarButton>
-
-      <span className="editor-toolbar-sep" />
-
-      <select
-        className="editor-toolbar-select"
-        title="Fonte"
-        value={editor.getAttributes('textStyle').fontFamily ?? ''}
-        onChange={(e) => {
-          const v = e.target.value
-          if (v) editor.chain().focus().setFontFamily(v).run()
-          else editor.chain().focus().unsetFontFamily().run()
-        }}
-      >
-        {FONTES.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
-      </select>
-
-      <select
-        className="editor-toolbar-select"
-        title="Tamanho da fonte"
-        value={editor.getAttributes('textStyle').fontSize ?? ''}
-        onChange={(e) => {
-          const v = e.target.value
-          if (v) editor.chain().focus().setFontSize(v).run()
-          else editor.chain().focus().unsetFontSize().run()
-        }}
-      >
-        {TAMANHOS.map((t) => <option key={t.label} value={t.value}>{t.label}</option>)}
-      </select>
 
       <span className="editor-toolbar-sep" />
 

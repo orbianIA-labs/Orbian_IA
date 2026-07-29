@@ -807,6 +807,71 @@ h2 {
 .escritorio-timbre-thumb.pos-inferior-esquerda::after { bottom: 5px; left: 5px; }
 .escritorio-timbre-thumb.pos-inferior-direita::after { bottom: 5px; right: 5px; }
 
+.escritorio-fonte-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.escritorio-fonte-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.escritorio-fonte-card:hover { border-color: var(--line-strong); }
+.escritorio-fonte-card.active { border-color: var(--c-primary); color: var(--c-primary); }
+.escritorio-fonte-swatch {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  line-height: 1;
+}
+
+.escritorio-preview-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.escritorio-preview-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+.escritorio-preview-modal {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.escritorio-preview-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+.escritorio-preview-page.escritorio-preview-page-large {
+  width: min(70vh, 600px);
+  max-width: none;
+}
+
 .escritorio-preview-page {
   width: 100%;
   max-width: 320px;
@@ -3888,7 +3953,7 @@ progress::-webkit-progress-value {
 }
 
 .pecas-layout.expanded {
-  grid-template-columns: 0 1fr;
+  grid-template-columns: 1fr;
 }
 
 .pecas-layout.expanded .pecas-sidebar {
@@ -3896,7 +3961,7 @@ progress::-webkit-progress-value {
 }
 
 .pecas-layout.expanded .pecas-editor-area {
-  grid-template-columns: 0 1fr 0;
+  grid-template-columns: 1fr;
 }
 
 .pecas-layout.expanded .pecas-modules-panel,
