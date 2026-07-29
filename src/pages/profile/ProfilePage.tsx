@@ -206,6 +206,19 @@ const ESCRITORIO_FORM_VAZIO: EscritorioForm = {
   rodapeTexto: '', rodapeAtivo: true,
 }
 
+// Texto fictício usado só para dar uma ideia realista de como a peça fica com o timbre/tipografia/rodapé escolhidos.
+const PECA_EXEMPLO_HTML = `
+  <p style="text-align:center;font-weight:700;">EXMO. SR. DR. JUIZ DE DIREITO DA VARA CÍVEL DA COMARCA DE SÃO PAULO - SP</p>
+  <p>Fulano de Tal, já qualificado nos autos, por seu advogado que esta subscreve, vem respeitosamente à presença de Vossa Excelência propor a presente ação, pelas razões de fato e de direito a seguir expostas.</p>
+  <p><strong>Dos Fatos</strong></p>
+  <p>Em breve síntese, o requerente firmou contrato com a parte requerida, cujas obrigações não foram devidamente cumpridas, causando-lhe prejuízos que ora se busca reparar por meio da presente demanda.</p>
+  <p><strong>Do Direito</strong></p>
+  <p>A pretensão encontra amparo na legislação vigente, notadamente nos princípios da boa-fé objetiva e da função social dos contratos, impondo-se o acolhimento integral do pedido.</p>
+  <p><strong>Dos Pedidos</strong></p>
+  <p>Ante o exposto, requer-se a procedência da ação, condenando-se a parte requerida ao cumprimento das obrigações pactuadas, além do pagamento das custas processuais e honorários advocatícios.</p>
+  <p>Termos em que, pede deferimento.</p>
+`.trim()
+
 function EscritorioSection() {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -419,14 +432,9 @@ function EscritorioSection() {
 
         <div className="escritorio-preview-header">
           <p className="section-label-lg" style={{ fontSize: 14, margin: 0 }}>Pré-visualização</p>
-          <button
-            type="button"
-            className="icon-btn"
-            title="Expandir pré-visualização"
-            onClick={() => setPreviewExpandida(true)}
-          >
-            <Maximize2 size={15} />
-          </button>
+          <Button variant="secondary" style={{ fontSize: 12.5 }} onClick={() => setPreviewExpandida(true)}>
+            <Maximize2 size={13} /> Pré-visualização
+          </Button>
         </div>
         <div className="escritorio-preview-page">
           {form.timbrePosicao.startsWith('superior') && (
@@ -467,22 +475,26 @@ function EscritorioSection() {
             >
               <X size={16} />
             </button>
-            <div className="escritorio-preview-page escritorio-preview-page-large">
+            <div
+              className="escritorio-preview-page escritorio-preview-page-large escritorio-preview-page-exemplo"
+              style={{ fontFamily: form.fonteFamilia || undefined, fontSize: form.fonteTamanho || undefined }}
+            >
               {form.timbrePosicao.startsWith('superior') && (
                 <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
                   {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
                 </div>
               )}
-              <span className="escritorio-preview-bar" style={{ width: '90%' }} />
-              <span className="escritorio-preview-bar" style={{ width: '70%' }} />
-              <span className="escritorio-preview-bar" style={{ width: '85%' }} />
-              <span className="escritorio-preview-bar" style={{ width: '60%' }} />
+              <div dangerouslySetInnerHTML={{ __html: PECA_EXEMPLO_HTML }} />
               {form.timbrePosicao.startsWith('inferior') && (
                 <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
                   {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
                 </div>
               )}
-              {form.rodapeAtivo && <div className="escritorio-preview-footer" />}
+              {form.rodapeAtivo && (
+                <div className="escritorio-preview-footer-texto">
+                  {form.rodapeTexto || 'Rua Exemplo, 123 - São Paulo/SP · (11) 0000-0000'}
+                </div>
+              )}
             </div>
           </div>
         </div>

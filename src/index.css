@@ -893,6 +893,22 @@ h2 {
 .escritorio-preview-bar { height: 6px; border-radius: 3px; background: var(--line); }
 .escritorio-preview-footer { margin-top: auto; height: 4px; width: 60%; border-radius: 2px; background: var(--line-strong); }
 
+.escritorio-preview-page.escritorio-preview-page-exemplo {
+  aspect-ratio: auto;
+  color: var(--ink);
+  line-height: 1.6;
+  gap: 14px;
+}
+.escritorio-preview-page-exemplo p { margin: 0 0 10px; }
+.escritorio-preview-footer-texto {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .settings-plan-badge {
   display: inline-flex;
   padding: 6px 14px;
