@@ -2,12 +2,12 @@ import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Bot, Building2, ChevronRight, CreditCard, Image as ImageIcon, KeyRound, LogOut,
+  ArrowLeft, Building2, ChevronRight, CreditCard, Image as ImageIcon, KeyRound, LogOut,
   Maximize2, Monitor, Moon, Plus, Shield, ShieldCheck, Sun, Trash2, Upload, User, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/services/auth.service'
-import { usuariosService, type IaPreferencias } from '@/services/usuarios.service'
+import { usuariosService } from '@/services/usuarios.service'
 import { escritorioService, logoUrlDoEscritorio, type TimbrePosicao } from '@/services/escritorio.service'
 import { FONTES, TAMANHOS } from '@/components/editor/OrbianEditor'
 import { useAuthStore } from '@/store/authStore'
@@ -20,7 +20,7 @@ const UFS = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-type SectionKey = 'conta' | 'escritorio' | 'usuarios' | 'ia' | 'assinatura' | 'seguranca'
+type SectionKey = 'conta' | 'escritorio' | 'usuarios' | 'assinatura' | 'seguranca'
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Claro', icon: Sun },
@@ -32,7 +32,6 @@ const SECTIONS: { key: SectionKey; label: string; desc: string; icon: typeof Use
   { key: 'conta', label: 'Conta', desc: 'Dados pessoais, e-mail e senha', icon: User },
   { key: 'escritorio', label: 'Escritório', desc: 'Informações da banca e identidade visual', icon: Building2 },
   { key: 'usuarios', label: 'Usuários', desc: 'Equipe, permissões e convites', icon: Users },
-  { key: 'ia', label: 'Inteligência Artificial', desc: 'Tom de escrita e automações', icon: Bot },
   { key: 'assinatura', label: 'Assinatura', desc: 'Plano atual e limites', icon: CreditCard },
   { key: 'seguranca', label: 'Segurança', desc: 'Autenticação em duas etapas e sessões', icon: Shield },
 ]
@@ -110,7 +109,6 @@ export function ProfilePage() {
             {section === 'conta' && <ContaSection />}
             {section === 'escritorio' && <EscritorioSection />}
             {section === 'usuarios' && <UsuariosSection />}
-            {section === 'ia' && <IaSection />}
             {section === 'assinatura' && <AssinaturaSection />}
             {section === 'seguranca' && <SegurancaSection onSair={sair} />}
           </section>
@@ -593,63 +591,6 @@ function UsuariosSection() {
           )}
         </>
       )}
-    </div>
-  )
-}
-
-const TOM_OPTIONS: { value: IaPreferencias['tom']; label: string }[] = [
-  { value: 'formal', label: 'Formal' },
-  { value: 'tecnico', label: 'Técnico' },
-  { value: 'direto', label: 'Direto' },
-]
-
-function IaSection() {
-  const qc = useQueryClient()
-  const { data: prefs } = useQuery({ queryKey: ['ia-preferencias'], queryFn: () => usuariosService.obterIaPreferencias() })
-  const [form, setForm] = useState<IaPreferencias | null>(null)
-  const atual = form ?? prefs
-
-  const salvar = useMutation({
-    mutationFn: (p: IaPreferencias) => usuariosService.atualizarIaPreferencias(p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['ia-preferencias'] }); toast('Preferências de IA salvas.', 'success') },
-  })
-
-  if (!atual) return null
-
-  function update(patch: Partial<IaPreferencias>) {
-    const next = { ...atual!, ...patch }
-    setForm(next)
-    salvar.mutate(next)
-  }
-
-  return (
-    <div className="settings-section-body">
-      <label className="nc-field">
-        Tom de escrita
-        <select value={atual.tom} onChange={(e) => update({ tom: e.target.value as IaPreferencias['tom'] })}>
-          {TOM_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
-      </label>
-
-      <div className="settings-toggle-list">
-        <label className="settings-toggle-row">
-          <input type="checkbox" checked={atual.fortalecerFundamentacao} onChange={(e) => update({ fortalecerFundamentacao: e.target.checked })} />
-          Fortalecer fundamentação por padrão
-        </label>
-        <label className="settings-toggle-row">
-          <input type="checkbox" checked={atual.sugerirJurisprudencia} onChange={(e) => update({ sugerirJurisprudencia: e.target.checked })} />
-          Sugerir jurisprudência por padrão
-        </label>
-        <label className="settings-toggle-row">
-          <input type="checkbox" checked={atual.verificarClareza} onChange={(e) => update({ verificarClareza: e.target.checked })} />
-          Verificar clareza por padrão
-        </label>
-        <label className="settings-toggle-row">
-          <input type="checkbox" checked={atual.contraArgumentacao} onChange={(e) => update({ contraArgumentacao: e.target.checked })} />
-          Antecipar contra-argumentação por padrão
-        </label>
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--muted)' }}>Esses padrões são aplicados automaticamente ao abrir o Copiloto em Gerar Peças.</p>
     </div>
   )
 }

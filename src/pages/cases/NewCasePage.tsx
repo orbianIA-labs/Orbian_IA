@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Star } from 'lucide-react'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
@@ -24,11 +25,12 @@ const PRIORIDADES = [
   { value: 'baixa', label: 'Prioridade Baixa' },
 ] as const
 
-const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Revisão', 'Encerramento']
+const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
 
 export function NewCasePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const clienteFixo = Boolean(searchParams.get('clienteId'))
   const [error, setError] = useState('')
   const [caseId, setCaseId] = useState<string | null>(null)
   const [protocolo, setProtocolo] = useState<number | null>(null)
@@ -64,6 +66,29 @@ export function NewCasePage() {
     return () => clearTimeout(t)
   }, [clienteQuery, getValues])
 
+  // Ao abrir "Novo Caso" a partir de um cliente existente, pré-preenche os campos que
+  // costumam se repetir entre os casos do mesmo cliente (tribunal/vara/UF/área), usando
+  // o caso mais recente dele como referência — o advogado ainda pode ajustar tudo.
+  const clienteIdParam = searchParams.get('clienteId')
+  const { data: casosDoCliente } = useQuery({
+    queryKey: ['cases', { clienteId: clienteIdParam }],
+    queryFn: () => casesService.list({ clienteId: clienteIdParam! }),
+    enabled: !!clienteIdParam,
+  })
+
+  const prefillAplicado = useRef(false)
+  useEffect(() => {
+    const ultimoCaso = casosDoCliente?.[0]
+    if (!ultimoCaso || prefillAplicado.current) return
+    prefillAplicado.current = true
+    if (ultimoCaso.tribunal) setValue('tribunal', ultimoCaso.tribunal)
+    if (ultimoCaso.vara) setValue('vara', ultimoCaso.vara)
+    if (ultimoCaso.uf) setValue('uf', ultimoCaso.uf)
+    setValue('area', ultimoCaso.area)
+    setValue('honorariosTipo', ultimoCaso.feesType)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [casosDoCliente])
+
   const honorariosTipo = watch('honorariosTipo')
   const valorCausa = watch('valorCausa')
   const honorarios = watch('honorarios')
@@ -93,7 +118,8 @@ export function NewCasePage() {
 
   async function onVoltar() {
     if (getValues('clientName')) await onSaveDraft(true)
-    navigate('/cases')
+    const clienteId = searchParams.get('clienteId')
+    navigate(clienteId ? `/clientes/${clienteId}` : '/clientes')
   }
 
   async function onSubmit(input: CreateCaseInput) {
@@ -154,34 +180,43 @@ export function NewCasePage() {
             <div className="nc-field-pair">
               <label className="nc-field nc-cliente-field">
                 Cliente *
-                <input
-                  {...register('clientName')}
-                  placeholder="Nome ou CPF/CNPJ"
-                  autoComplete="off"
-                  onChange={(e) => {
-                    setValue('clientName', e.target.value)
-                    setValue('clienteId', undefined)
-                    setClienteQuery(e.target.value)
-                  }}
-                />
-                {errors.clientName && <small>{errors.clientName.message}</small>}
-                {clienteSugestoes.length > 0 && (
-                  <ul className="nc-cliente-suggestions">
-                    {clienteSugestoes.map((c) => (
-                      <li
-                        key={c.id}
-                        onClick={() => {
-                          setValue('clientName', c.nome)
-                          setValue('clienteId', c.id)
-                          setClienteSugestoes([])
-                        }}
-                      >
-                        {c.nome}{c.cpfCnpj ? ` · ${c.cpfCnpj}` : ''}
-                      </li>
-                    ))}
-                  </ul>
+                {clienteFixo ? (
+                  <>
+                    <input {...register('clientName')} readOnly disabled />
+                    <small className="nc-cliente-hint">Novo processo para este cliente.</small>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      {...register('clientName')}
+                      placeholder="Nome ou CPF/CNPJ"
+                      autoComplete="off"
+                      onChange={(e) => {
+                        setValue('clientName', e.target.value)
+                        setValue('clienteId', undefined)
+                        setClienteQuery(e.target.value)
+                      }}
+                    />
+                    {errors.clientName && <small>{errors.clientName.message}</small>}
+                    {clienteSugestoes.length > 0 && (
+                      <ul className="nc-cliente-suggestions">
+                        {clienteSugestoes.map((c) => (
+                          <li
+                            key={c.id}
+                            onClick={() => {
+                              setValue('clientName', c.nome)
+                              setValue('clienteId', c.id)
+                              setClienteSugestoes([])
+                            }}
+                          >
+                            {c.nome}{c.cpfCnpj ? ` · ${c.cpfCnpj}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {watch('clienteId') && <small className="nc-cliente-hint">Cliente existente selecionado — este será um novo processo para ele.</small>}
+                  </>
                 )}
-                {watch('clienteId') && <small className="nc-cliente-hint">Cliente existente selecionado — este será um novo processo para ele.</small>}
               </label>
               <label className="nc-field">
                 Parte Contrária

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Bot, CheckCircle2, ChevronLeft, ChevronRight, Circle, Copy, Download,
+  ArrowLeft, Bot, CheckCircle2, Circle, Copy, Download,
   FileText, Layers, Loader2, Maximize2, Minimize2, Plus, Save, Scale, Sparkles, Trash2, Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -13,7 +13,8 @@ import { escritorioService, logoUrlDoEscritorio } from '@/services/escritorio.se
 import { usuariosService } from '@/services/usuarios.service'
 import { toast } from '@/store/toastStore'
 import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
-import { stageRoute } from '@/lib/pipeline'
+import { PIPELINE, reachableIndex, stageRoute } from '@/lib/pipeline'
+import { PipelineStepper } from '@/components/case/PipelineStepper'
 
 interface PecaGerada {
   id: string
@@ -148,6 +149,8 @@ function logoSrc(): string | null {
     queryFn: () => api.get(`/api/casos/${casoId}/pecas`).then((r) => r.data),
     enabled: !!casoId,
   })
+  const currentIdx = reachableIndex(caso, pecas.length > 0)
+  const stageIdx = PIPELINE.findIndex((s) => s.key === 'pecas')
 
   const { data: templates = [] } = useQuery<TemplatePeca[]>({
     queryKey: ['templates', categoria],
@@ -213,12 +216,12 @@ function logoSrc(): string | null {
     },
   })
 
-  const avancarRevisao = useMutation({
+  const irParaOCaso = useMutation({
     mutationFn: async () => {
       if (pecaSelecionada && editedContent !== pecaSelecionada.conteudo) {
         await api.patch(`/api/casos/${casoId}/pecas/${pecaSelecionada.id}`, { conteudo: editedContent })
       }
-      return casesService.update(casoId!, { etapaAtual: 'revisao' })
+      return casesService.update(casoId!, { etapaAtual: 'prazos' })
     },
     onSuccess: () => navigate(`/cases/${casoId}`),
   })
@@ -310,37 +313,34 @@ function logoSrc(): string | null {
     : null
 
   return (
-    <div className={`pecas-layout ${expandido ? 'expanded' : ''}`}>
+    <div className="pecas-page-shell">
+      <header className="new-case-header">
+        <button className="back-btn" onClick={() => navigate(`/cases/${casoId}`)}>
+          <ArrowLeft size={15} /> Voltar ao caso
+        </button>
+        {caso && (
+          <div style={{ marginLeft: 8 }}>
+            <p className="eyebrow" style={{ marginBottom: 2 }}>Peças com IA</p>
+            <h2 style={{ fontSize: 16 }}>{caso.title || caso.clientName}</h2>
+          </div>
+        )}
+      </header>
+
+      <PipelineStepper
+        label="Gerar Peças"
+        subtitle="Gere a peça jurídica com IA."
+        viewedIdx={stageIdx}
+        currentPipelineIdx={currentIdx}
+        progressoPct={Math.round((currentIdx / (PIPELINE.length - 1)) * 100)}
+        podeVoltar={stageIdx > 0}
+        podeAvancarView={stageIdx < currentIdx}
+        onIrParaIdx={(idx) => navigate(stageRoute(casoId!, PIPELINE[idx].key))}
+        onIrParaEtapa={(key) => navigate(stageRoute(casoId!, key))}
+      />
+
+      <div className={`pecas-layout ${expandido ? 'expanded' : ''}`}>
       {/* ── Painel esquerdo: seleção de peças ── */}
       <aside className="pecas-sidebar">
-        <div className="pecas-sidebar-header">
-          <button className="back-btn" onClick={() => navigate(`/cases/${casoId}`)}>
-            <ArrowLeft size={15} /> Voltar ao caso
-          </button>
-          {caso && (
-            <div style={{ marginTop: 8 }}>
-              <p className="eyebrow" style={{ marginBottom: 2 }}>Peças com IA</p>
-              <h2 style={{ fontSize: 16 }}>{caso.title || caso.clientName}</h2>
-            </div>
-          )}
-          <div className="pecas-stage-nav">
-            <button
-              className="pecas-stage-nav-btn"
-              onClick={() => navigate(stageRoute(casoId!, 'documentos'))}
-            >
-              <ChevronLeft size={14} /> Documentos
-            </button>
-            <button
-              className="pecas-stage-nav-btn"
-              disabled={pecas.length === 0}
-              title={pecas.length === 0 ? 'Gere pelo menos 1 peça para revisar' : undefined}
-              onClick={() => navigate(stageRoute(casoId!, 'revisao'))}
-            >
-              Revisão <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-
         {/* ── Formulário de geração ── */}
         {mostrarNovaPeca && (
         <div className="pecas-gen-form">
@@ -569,11 +569,11 @@ function logoSrc(): string | null {
                 <Save size={14} /> {salvar.isPending ? 'Salvando...' : 'Salvar'}
               </Button>
               <Button
-                onClick={() => avancarRevisao.mutate()}
-                disabled={avancarRevisao.isPending}
+                onClick={() => irParaOCaso.mutate()}
+                disabled={irParaOCaso.isPending}
                 style={{ fontSize: 13 }}
               >
-                <CheckCircle2 size={14} /> {avancarRevisao.isPending ? 'Avançando...' : 'Avançar para Revisão'}
+                <CheckCircle2 size={14} /> {irParaOCaso.isPending ? 'Salvando...' : 'Ir para o Caso'}
               </Button>
             </div>
           </div>
@@ -679,6 +679,7 @@ function logoSrc(): string | null {
           <p>Escolha um tipo de peça no painel à esquerda e clique em "Gerar peça com IA".</p>
         </div>
       )}
+      </div>
     </div>
   )
 }

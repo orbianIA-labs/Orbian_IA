@@ -46,6 +46,11 @@ export const monitoringService = {
     return data
   },
 
+  async registrarManual(casoId: string, descricao: string): Promise<Movimentacao> {
+    const { data } = await api.post<MovimentacaoResponse>(`/api/casos/${casoId}/movimentacoes`, { descricao })
+    return mapMov(data)
+  },
+
   async recentes(limit = 8): Promise<MovimentacaoRecente[]> {
     const { data } = await api.get<MovimentacaoRecenteResponse[]>('/api/movimentacoes/recentes', {
       params: { limit },

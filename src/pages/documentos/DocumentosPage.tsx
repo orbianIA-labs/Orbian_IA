@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Lock, Plus, Sparkles, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bot, Download, FileText, Plus, Sparkles, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
 import { documentosService, type Documento } from '@/services/documentos.service'
 import api from '@/lib/axios'
 import { formatDate } from '@/lib/utils'
 import { PIPELINE, reachableIndex, stageRoute } from '@/lib/pipeline'
+import { PipelineStepper } from '@/components/case/PipelineStepper'
 
 const CATEGORIAS = ['Todos', 'Procuração', 'Contratos', 'Petições', 'Decisões', 'Sentenças', 'Recursos', 'Outros'] as const
 type Categoria = (typeof CATEGORIAS)[number]
@@ -121,46 +122,23 @@ export function DocumentosPage() {
         <button className="back-btn" onClick={() => navigate(`/cases/${id}`)}>
           <ArrowLeft size={16} /> Voltar ao caso
         </button>
-        <button
-          className="case-stepper-arrow"
-          aria-label="Etapa anterior"
-          title="Etapa anterior"
-          disabled={stageIdx === 0}
-          onClick={() => navigate(stageRoute(id!, PIPELINE[stageIdx - 1].key))}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <nav className="pipeline-tabs">
-          {PIPELINE.map((stage, i) => {
-            const done = i < stageIdx
-            const active = i === stageIdx
-            const locked = i > currentIdx
-            const clickable = !locked && !active
-            return (
-              <span
-                key={stage.key}
-                className={`pipeline-tab ${done ? 'done' : active ? 'active' : locked ? 'locked' : ''} ${clickable ? 'clickable' : ''}`}
-                onClick={clickable ? () => navigate(stageRoute(id!, stage.key)) : undefined}
-              >
-                {done ? <CheckCircle2 size={13} /> : locked ? <Lock size={11} /> : <span className="pipeline-tab-dot">{i + 1}</span>}
-                {stage.label}
-              </span>
-            )
-          })}
-        </nav>
-        <button
-          className="case-stepper-arrow"
-          aria-label="Próxima etapa"
-          title="Próxima etapa"
-          disabled={stageIdx >= currentIdx}
-          onClick={() => navigate(stageRoute(id!, PIPELINE[stageIdx + 1].key))}
-        >
-          <ChevronRight size={16} />
-        </button>
+        <div style={{ flex: 1 }} />
         <Button onClick={() => navigate(`/cases/${id}/pecas`)}>
           Continuar para Gerar Peças <ArrowRight size={15} />
         </Button>
       </header>
+
+      <PipelineStepper
+        label="Documentos"
+        subtitle="Anexe os documentos que embasam a peça."
+        viewedIdx={stageIdx}
+        currentPipelineIdx={currentIdx}
+        progressoPct={Math.round((currentIdx / (PIPELINE.length - 1)) * 100)}
+        podeVoltar={stageIdx > 0}
+        podeAvancarView={stageIdx < currentIdx}
+        onIrParaIdx={(idx) => navigate(stageRoute(id!, PIPELINE[idx].key))}
+        onIrParaEtapa={(key) => navigate(stageRoute(id!, key))}
+      />
 
       <div className="doc-page-body">
         <div className="doc-page-main">

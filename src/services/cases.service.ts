@@ -96,6 +96,7 @@ function mapCaso(c: CasoResponse): LegalCase {
 export type CaseFilters = {
   status?: string
   q?: string
+  clienteId?: string
 }
 
 export type UpdateCasePatch = {

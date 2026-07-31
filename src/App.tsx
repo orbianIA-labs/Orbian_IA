@@ -6,8 +6,10 @@ import { LoginPage } from '@/pages/auth/LoginPage'
 import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
 import { AdminPage } from '@/pages/admin/AdminPage'
 import { CaseDetailPage } from '@/pages/cases/CaseDetailPage'
-import { CasesPage } from '@/pages/cases/CasesPage'
 import { NewCasePage } from '@/pages/cases/NewCasePage'
+import { ClientesPage } from '@/pages/clientes/ClientesPage'
+import { NewClientePage } from '@/pages/clientes/NewClientePage'
+import { ClienteDetailPage } from '@/pages/clientes/ClienteDetailPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { ProfilePage } from '@/pages/profile/ProfilePage'
 import { PecasPage } from '@/pages/pecas/PecasPage'
@@ -31,7 +33,9 @@ function App() {
             }
           >
             <Route index element={<DashboardPage />} />
-            <Route path="cases" element={<CasesPage />} />
+            <Route path="clientes" element={<ClientesPage />} />
+            <Route path="clientes/new" element={<NewClientePage />} />
+            <Route path="clientes/:id" element={<ClienteDetailPage />} />
             <Route path="cases/new" element={<NewCasePage />} />
             <Route path="cases/:id" element={<CaseDetailPage />} />
             <Route path="cases/:id/pecas" element={<PecasPage />} />

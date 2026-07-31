@@ -1,11 +1,11 @@
-import { Eye, FileText, Flag, Pencil, Upload } from 'lucide-react'
+import { CalendarClock, FileText, Flag, Pencil, Upload } from 'lucide-react'
 import type { EtapaPipeline, LegalCase } from '@/types/domain.types'
 
 export const PIPELINE: { key: EtapaPipeline; label: string; icon: typeof Pencil }[] = [
   { key: 'cadastro',     label: 'Cadastro',     icon: Pencil },
   { key: 'documentos',   label: 'Documentos',   icon: Upload },
   { key: 'pecas',        label: 'Gerar Peças',  icon: FileText },
-  { key: 'revisao',      label: 'Revisão',      icon: Eye },
+  { key: 'prazos',       label: 'Prazos',       icon: CalendarClock },
   { key: 'encerramento', label: 'Finalização',  icon: Flag },
 ]
 
@@ -19,7 +19,7 @@ export function reachableIndex(legalCase: LegalCase | undefined, hasPeca: boolea
 }
 
 /** Rota para onde navegar ao clicar numa etapa a partir de outra página do caso.
- *  Cadastro/Revisão/Encerramento não têm rota própria — vivem dentro de
+ *  Cadastro/Prazos/Encerramento não têm rota própria — vivem dentro de
  *  CaseDetailPage, que lê "?view=" para abrir direto na etapa pedida. */
 export function stageRoute(casoId: string, key: EtapaPipeline): string {
   if (key === 'documentos') return `/cases/${casoId}/documentos`

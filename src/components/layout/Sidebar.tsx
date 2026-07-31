@@ -1,8 +1,8 @@
 import {
   BookOpen,
-  FolderKanban,
   Home,
   Settings,
+  Users,
   Zap,
 } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
@@ -11,7 +11,7 @@ import type { User } from '@/types/domain.types'
 
 const navItems = [
   { to: '/', label: 'Início', icon: Home },
-  { to: '/cases', label: 'Casos', icon: FolderKanban },
+  { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/biblioteca', label: 'Modelo de Peças', icon: BookOpen },
   { to: '/profile', label: 'Configurações', icon: Settings },
 ]

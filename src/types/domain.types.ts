@@ -32,6 +32,7 @@ export type EtapaPipeline =
   | 'cadastro'
   | 'documentos'
   | 'pecas'
+  | 'prazos'
   | 'revisao'
   | 'protocolo'
   | 'atualizacoes'

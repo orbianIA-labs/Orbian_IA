@@ -20,6 +20,7 @@ const ETAPA_LABEL: Record<EtapaPipeline, string> = {
   cadastro: 'Cadastro',
   documentos: 'Documentos',
   pecas: 'Gerar Peças',
+  prazos: 'Prazos',
   revisao: 'Revisão',
   protocolo: 'Revisão',
   atualizacoes: 'Revisão',
