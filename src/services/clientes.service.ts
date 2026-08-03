@@ -39,7 +39,12 @@ export const clientesService = {
     return data
   },
 
-  async remove(id: string): Promise<void> {
-    await api.delete(`/api/clientes/${id}`)
+  async remove(id: string, opts?: { forcar?: boolean }): Promise<void> {
+    await api.delete(`/api/clientes/${id}`, { params: opts?.forcar ? { forcar: true } : undefined })
+  },
+
+  async transferirCasos(id: string, novoClienteId: string): Promise<number> {
+    const { data } = await api.post<{ casosTransferidos: number }>(`/api/clientes/${id}/transferir-casos`, { novoClienteId })
+    return data.casosTransferidos
   },
 }

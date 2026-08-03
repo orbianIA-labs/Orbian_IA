@@ -35,6 +35,14 @@ Sistema de tipografia usa `@fontsource/geist-sans` + `@fontsource/geist-mono` (s
 
 Drag-and-drop de arquivos direto do explorador pra área de documentos (workspace e `DocumentosPage`). Persistência real no backend (bytea no Postgres, não é mock).
 
+## Exclusão de cliente
+
+`ConfirmDialog` (genérico, `components/ui/`) + `ResolverClienteComCasosDialog` (aparece quando o backend recusa a exclusão por caso ativo — oferece "Transferir casos" via `ClienteCombobox` pesquisável, ou "Excluir mesmo assim") — usados em `ClientesPage` e `ClienteDetailPage`, mesmo padrão nos dois lugares. `lib/validators.ts` replica no frontend a validação de CPF/CNPJ (checksum)/telefone/e-mail que o backend também faz, pra dar erro inline antes de bater na API.
+
+## Auto-save do Novo Caso
+
+`NewCasePage` salva rascunho em dois níveis: localStorage (debounce ~500ms, sobrevive a F5 e queda de internet porque não depende do backend) + sincronização silenciosa com o servidor (debounce ~2.5s, best-effort — ignora erro se estiver offline, tenta de novo na próxima digitação). Chave `orbian:new-case-draft:{clienteId ?? 'anon'}`, restaurada ao abrir a tela e limpa ao submeter o caso com sucesso.
+
 ## Peças — citação de lei/jurisprudência
 
 Quando a IA insere lei/jurisprudência/súmula, o trecho citado vem envolvido em `<span class="peca-destaque">` — CSS é só `display:block; margin:14px 3ch` (bloco recuado dos dois lados, **sem** mudar cor/borda). A regra vive no prompt do backend (`PecasService.EditarPecaComIaAsync`), não no frontend.

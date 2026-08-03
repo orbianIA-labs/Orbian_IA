@@ -61,7 +61,10 @@ export function PipelineStepper({
                 <span className="case-step-dot">
                   {done ? <CheckCircle2 size={14} /> : locked ? <Lock size={11} /> : idx + 1}
                 </span>
-                <span className="case-step-label"><StageIcon size={13} /></span>
+                <span className="case-step-label">
+                  <StageIcon size={13} />
+                  <span className="case-step-name">{stage.label}</span>
+                </span>
               </div>
             )
           })}

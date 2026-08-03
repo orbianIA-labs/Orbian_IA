@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Star } from 'lucide-react'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
 import { casesService, type ClienteBusca } from '@/services/cases.service'
+import { clientesService } from '@/services/clientes.service'
 import { toast } from '@/store/toastStore'
 
 const AREAS = [
@@ -26,6 +27,15 @@ const PRIORIDADES = [
 ] as const
 
 const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
+
+const DRAFT_STORAGE_PREFIX = 'orbian:new-case-draft:'
+
+type DraftPersistido = {
+  values: Partial<CreateCaseInput>
+  favorito?: boolean
+  caseId?: string | null
+  protocolo?: number | null
+}
 
 export function NewCasePage() {
   const navigate = useNavigate()
@@ -76,7 +86,69 @@ export function NewCasePage() {
     enabled: !!clienteIdParam,
   })
 
+  // Rascunho persistido no navegador: sobrevive a F5 e queda de conexão porque não
+  // depende do backend. Escopado por cliente pra não misturar rascunhos de casos diferentes.
+  const draftKey = `${DRAFT_STORAGE_PREFIX}${clienteIdParam ?? 'anon'}`
   const prefillAplicado = useRef(false)
+
+  const draftRestaurado = useRef(false)
+  useEffect(() => {
+    if (draftRestaurado.current) return
+    draftRestaurado.current = true
+    const raw = localStorage.getItem(draftKey)
+    if (!raw) return
+    try {
+      const draft = JSON.parse(raw) as DraftPersistido
+      Object.entries(draft.values).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) setValue(key as keyof CreateCaseInput, value as never)
+      })
+      if (draft.favorito) setFavorito(draft.favorito)
+      if (draft.caseId) { setCaseId(draft.caseId); setProtocolo(draft.protocolo ?? null) }
+      // Já tem dados reais recuperados — não deixa o auto-preenchimento do cliente sobrescrever.
+      prefillAplicado.current = true
+      toast('Rascunho recuperado — continue de onde parou.', 'info')
+    } catch {
+      localStorage.removeItem(draftKey)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey])
+
+  // Auto-save: grava no localStorage a cada digitação (instantâneo, funciona offline)
+  // e tenta sincronizar com o servidor em segundo plano, sem travar a digitação nem
+  // mostrar erro se a internet cair — a próxima digitação tenta de novo.
+  useEffect(() => {
+    let localTimer: ReturnType<typeof setTimeout> | null = null
+    let backendTimer: ReturnType<typeof setTimeout> | null = null
+
+    const subscription = watch((values) => {
+      if (localTimer) clearTimeout(localTimer)
+      localTimer = setTimeout(() => {
+        const draft: DraftPersistido = { values, favorito, caseId, protocolo }
+        localStorage.setItem(draftKey, JSON.stringify(draft))
+      }, 500)
+
+      if (backendTimer) clearTimeout(backendTimer)
+      if (values.clientName?.trim()) {
+        backendTimer = setTimeout(() => { onSaveDraft(true) }, 2500)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+      if (localTimer) clearTimeout(localTimer)
+      if (backendTimer) clearTimeout(backendTimer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watch, draftKey, favorito, caseId, protocolo])
+
+  // Dados completos do cliente (CPF/CNPJ, telefone, e-mail) — exibidos como confirmação
+  // de que nada precisa ser redigitado, já que o caso já nasce vinculado a este cliente.
+  const { data: cliente } = useQuery({
+    queryKey: ['cliente', clienteIdParam],
+    queryFn: () => clientesService.get(clienteIdParam!),
+    enabled: !!clienteIdParam,
+  })
+
   useEffect(() => {
     const ultimoCaso = casosDoCliente?.[0]
     if (!ultimoCaso || prefillAplicado.current) return
@@ -127,11 +199,13 @@ export function NewCasePage() {
     try {
       if (caseId) {
         await casesService.update(caseId, { rascunho: false, favorito, ...toPatch(input) })
+        localStorage.removeItem(draftKey)
         navigate(`/cases/${caseId}/documentos`)
         return
       }
 
       const caso = await casesService.create(input, { rascunho: false, favorito })
+      localStorage.removeItem(draftKey)
       navigate(`/cases/${caso.id}/documentos`)
     } catch {
       setError('Erro ao criar caso. Verifique os dados e tente novamente.')
@@ -183,7 +257,13 @@ export function NewCasePage() {
                 {clienteFixo ? (
                   <>
                     <input {...register('clientName')} readOnly disabled />
-                    <small className="nc-cliente-hint">Novo processo para este cliente.</small>
+                    {(cliente?.cpfCnpj || cliente?.telefone || cliente?.email) && (
+                      <div className="nc-cliente-locked-meta">
+                        {cliente.cpfCnpj && <span>{cliente.cpfCnpj}</span>}
+                        {cliente.telefone && <span>{cliente.telefone}</span>}
+                        {cliente.email && <span>{cliente.email}</span>}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

@@ -315,15 +315,19 @@ function logoSrc(): string | null {
   return (
     <div className="pecas-page-shell">
       <header className="new-case-header">
-        <button className="back-btn" onClick={() => navigate(`/cases/${casoId}`)}>
-          <ArrowLeft size={15} /> Voltar ao caso
-        </button>
-        {caso && (
-          <div style={{ marginLeft: 8 }}>
-            <p className="eyebrow" style={{ marginBottom: 2 }}>Peças com IA</p>
-            <h2 style={{ fontSize: 16 }}>{caso.title || caso.clientName}</h2>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+          <button className="back-btn" onClick={() => navigate(`/cases/${casoId}`)}>
+            <ArrowLeft size={15} /> Voltar ao caso
+          </button>
+          {caso && (
+            <div style={{ minWidth: 0, paddingLeft: 16, borderLeft: '1px solid var(--line)' }}>
+              <p className="eyebrow" style={{ marginBottom: 2 }}>Peças com IA</p>
+              <h2 style={{ fontSize: 16, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {caso.title || caso.clientName}
+              </h2>
+            </div>
+          )}
+        </div>
       </header>
 
       <PipelineStepper
@@ -344,22 +348,18 @@ function logoSrc(): string | null {
         {/* ── Formulário de geração ── */}
         {mostrarNovaPeca && (
         <div className="pecas-gen-form">
-          <p className="section-label" style={{ marginBottom: 10 }}>NOVA PEÇA</p>
+          <p className="section-label" style={{ marginBottom: 12 }}>NOVA PEÇA</p>
 
-          <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+          <label className="nc-field" style={{ marginTop: 0 }}>
             Tipo de peça
+            <select value={categoria} onChange={(e) => { setCategoria(e.target.value); setTemplateId('') }}>
+              <option value="">Selecione o tipo...</option>
+              {TIPOS_PECA.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
           </label>
-          <select
-            value={categoria}
-            onChange={(e) => { setCategoria(e.target.value); setTemplateId('') }}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 13, marginBottom: 10 }}
-          >
-            <option value="">Selecione o tipo...</option>
-            {TIPOS_PECA.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
 
           {categoria === 'Alvará' && (
-            <div className="pecas-dados-bancarios">
+            <div className="pecas-dados-bancarios" style={{ marginTop: 12 }}>
               <p style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Dados bancários para o alvará</p>
               <div className="pecas-dados-bancarios-grid">
                 <input placeholder="Banco" value={dadosBancarios.banco} onChange={(e) => setDadosBancarios({ ...dadosBancarios, banco: e.target.value })} />
@@ -376,34 +376,27 @@ function logoSrc(): string | null {
           )}
 
           {categoria && templates.length > 0 && (
-            <>
-              <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                Modelo (opcional)
-              </label>
-              <select
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 13, marginBottom: 10 }}
-              >
+            <label className="nc-field">
+              Modelo (opcional)
+              <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
                 <option value="">Automático ({templates.length} disponíveis)</option>
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.titulo}</option>)}
               </select>
-            </>
+            </label>
           )}
 
-          <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+          <label className="nc-field">
             Instruções adicionais
+            <textarea
+              placeholder="Ex.: incluir pedido de tutela antecipada, mencionar garantia do produto..."
+              value={instrucoes}
+              onChange={(e) => setInstrucoes(e.target.value)}
+              rows={3}
+            />
           </label>
-          <textarea
-            placeholder="Ex.: incluir pedido de tutela antecipada, mencionar garantia do produto..."
-            value={instrucoes}
-            onChange={(e) => setInstrucoes(e.target.value)}
-            rows={3}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit', marginBottom: 10, boxSizing: 'border-box' }}
-          />
 
           <Button
-            style={{ width: '100%', justifyContent: 'center', background: 'var(--grad-primary)' }}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 16, background: 'var(--grad-primary)' }}
             onClick={() => gerar.mutate()}
             disabled={!categoria || gerar.isPending}
           >
