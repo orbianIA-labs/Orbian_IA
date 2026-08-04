@@ -4,36 +4,24 @@ import {
   FileText,
   Folder,
   FolderKanban,
-  Image as ImageIcon,
   Play,
   Sparkles,
   Star,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/axios'
 import { casesService } from '@/services/cases.service'
 import { useAuthStore } from '@/store/authStore'
 import { relativeTime } from '@/lib/utils'
-import type { EtapaPipeline } from '@/types/domain.types'
+import { PIPELINE, pipelineIndex, reachableIndex } from '@/lib/pipeline'
+import { PrazosCalendar } from '@/components/dashboard/PrazosCalendar'
 
-const ETAPA_LABEL: Record<EtapaPipeline, string> = {
-  cadastro: 'Cadastro',
-  documentos: 'Documentos',
-  pecas: 'Gerar Peças',
-  prazos: 'Prazos',
-  revisao: 'Revisão',
-  protocolo: 'Revisão',
-  atualizacoes: 'Revisão',
-  encerramento: 'Encerramento',
+/** Rótulo da etapa atual do caso, já traduzido pra esteira vigente. */
+function etapaLabel(etapa: Parameters<typeof pipelineIndex>[0]) {
+  const idx = pipelineIndex(etapa)
+  return idx >= 0 ? PIPELINE[idx].label : '—'
 }
-
-const MISSION_PIPELINE: { key: EtapaPipeline; label: string; icon: typeof FileText }[] = [
-  { key: 'cadastro', label: 'Cadastro', icon: CheckCircle2 },
-  { key: 'documentos', label: 'Documentos', icon: CheckCircle2 },
-  { key: 'pecas', label: 'Peça', icon: FileText },
-  { key: 'revisao', label: 'Revisão', icon: ImageIcon },
-  { key: 'encerramento', label: 'Encerramento', icon: CheckCircle2 },
-]
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
@@ -67,7 +55,14 @@ export function DashboardPage() {
   const casosHoje = cases.filter((c) => new Date(c.updatedAt).toDateString() === new Date().toDateString()).length
   const favoritos = cases.filter((c) => c.favorito).length
 
-  const missionStageIdx = caso ? Math.max(0, MISSION_PIPELINE.findIndex((s) => s.key === caso.etapaAtual)) : 0
+  // Mesma regra da tela do caso: a etapa exibida considera o progresso real (peça
+  // gerada), não só o valor salvo — senão o dashboard mostra uma etapa e o caso outra.
+  const { data: pecasDoCaso = [] } = useQuery<unknown[]>({
+    queryKey: ['pecas', caso?.id],
+    queryFn: () => api.get(`/api/casos/${caso!.id}/pecas`).then((r) => r.data),
+    enabled: !!caso,
+  })
+  const missionStageIdx = caso ? reachableIndex(caso, pecasDoCaso.length > 0) : 0
 
   return (
     <div className="home">
@@ -105,7 +100,7 @@ export function DashboardPage() {
               </div>
 
               <nav className="cc-stepper">
-                {MISSION_PIPELINE.map((stage, idx) => {
+                {PIPELINE.map((stage, idx) => {
                   const done = idx < missionStageIdx
                   const active = idx === missionStageIdx
                   const StageIcon = stage.icon
@@ -121,7 +116,7 @@ export function DashboardPage() {
               <div className="mission-bottom">
                 <div>
                   <h2 className="mission-title">{caso.title || caso.clientName}</h2>
-                  <p className="mission-sub">{caso.caseNumber ?? ETAPA_LABEL[caso.etapaAtual]} · Atualizado {relativeTime(caso.updatedAt)}</p>
+                  <p className="mission-sub">{caso.caseNumber ?? PIPELINE[missionStageIdx].label} · Atualizado {relativeTime(caso.updatedAt)}</p>
                 </div>
                 <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
                   <Play size={15} fill="currentColor" />
@@ -163,7 +158,7 @@ export function DashboardPage() {
                   <div className="motor-item-body">
                     <div className="motor-item-card">
                       <strong>{c.title || c.clientName}</strong>
-                      <span className="motor-item-meta">{c.category || c.tipoServico || ETAPA_LABEL[c.etapaAtual]}</span>
+                      <span className="motor-item-meta">{c.category || c.tipoServico || etapaLabel(c.etapaAtual)}</span>
                     </div>
                   </div>
                   <span className="motor-time motor-time-right">{relativeTime(ultimaAtividade)}</span>
@@ -181,6 +176,7 @@ export function DashboardPage() {
 
        {/* ── Aside: estatísticas reais + Orbian Intelligence ── */}
        <aside className="cc-aside">
+        <PrazosCalendar />
         <div className="cc-stat-grid">
           <div className="cc-stat-tile">
             <span className="cc-stat-label"><FolderKanban size={13} /> CASOS ATIVOS</span>

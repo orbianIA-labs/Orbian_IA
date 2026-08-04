@@ -1,8 +1,10 @@
-import { Bell, LogOut, Monitor, Moon, Plus, Search, Sun, User as UserIcon, Zap } from 'lucide-react'
+import { LogOut, Monitor, Moon, Plus, Sun, User as UserIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore, type ThemeMode } from '@/store/themeStore'
 import { useState } from 'react'
+import { GlobalSearch } from './GlobalSearch'
+import { NotificationsBell } from './NotificationsBell'
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Claro', icon: Sun },
@@ -21,11 +23,7 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      <label className="search-box">
-        <Search size={16} />
-        <input placeholder="Pesquisar em toda a operação..." />
-        <span className="search-kbd">⌘K</span>
-      </label>
+      <GlobalSearch />
 
       <div className="topbar-actions">
         <div className="topbar-icon-user" style={{ position: 'relative' }}>
@@ -53,14 +51,7 @@ export function TopBar() {
           )}
         </div>
 
-        <button className="bell-btn" aria-label="Notificações">
-          <Bell size={18} />
-          <span className="bell-dot" />
-        </button>
-
-        <button className="bell-btn" aria-label="Ações rápidas de IA">
-          <Zap size={18} />
-        </button>
+        <NotificationsBell />
 
         <div
           className="topbar-icon-user"

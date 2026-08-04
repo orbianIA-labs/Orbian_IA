@@ -12,21 +12,21 @@
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
   /* ── Cores principais (Precision Legal OS) ────────────────────────── */
-  --c-primary: #0066ff;        /* Primary blue — CTAs, links, ativo, ícones */
-  --c-primary-strong: #0050cb; /* hover/pressed */
-  --accent-vivid: #00b9f1;     /* AI cyan — reservado para insights de IA */
-  --accent-2: #00b9f1;         /* fim do gradiente AI */
+  --c-primary: #4F46E5;        /* Primary indigo — CTAs, links, ativo, ícones */
+  --c-primary-strong: #4338CA; /* hover/pressed */
+  --accent-vivid: #CA8A04;     /* Gold — reservado para insights de IA / destaque secundário */
+  --accent-2: #CA8A04;         /* fim do gradiente de destaque */
   --c-deep: #1a1c1f;           /* ink escuro (compat.) */
   --c-deep-2: #0b0d10;
 
   /* ── Superfícies ──────────────────────────────────────────────────── */
-  --bg: #fafbfc;              /* Background da aplicação */
+  --bg: #EEF0F4;              /* Background da aplicação — cinza visível, cards flutuam por cima */
   --surface: #ffffff;         /* Card / superfície */
-  --surface-soft: #f3f3f7;    /* well / inset */
-  --muted-bg: #eeedf2;        /* muted */
-  --line: #e4e7ec;            /* Hairline border — assinatura */
-  --line-strong: #c2c6d8;
-  --surface-translucent: rgba(255, 255, 255, 0.8); /* topbar com blur */
+  --surface-soft: #E4E7EE;    /* well / inset */
+  --muted-bg: #E4E7EE;        /* muted */
+  --line: #DCE0E8;            /* Hairline border — assinatura */
+  --line-strong: #C2C8D6;
+  --surface-translucent: rgba(238, 240, 244, 0.8); /* topbar com blur */
 
   /* ── Texto ────────────────────────────────────────────────────────── */
   --ink: #1a1c1f;            /* texto principal */
@@ -43,7 +43,7 @@
 
   /* ── Acentos derivados ────────────────────────────────────────────── */
   --accent: var(--c-primary);
-  --accent-soft: #e6f0ff;    /* tint claro do primary (nav ativo, badges) */
+  --accent-soft: #ECEAFB;    /* tint claro do primary (nav ativo, badges) */
 
   /* ── Aliases legados (mantém compatibilidade) ─────────────────────── */
   --primary: var(--c-primary);
@@ -61,10 +61,10 @@
   --shadow-sm: 0 1px 2px rgba(11, 13, 16, 0.04);
   --shadow: 0 1px 3px rgba(11, 13, 16, 0.03), 0 8px 24px rgba(11, 13, 16, 0.04);
   --shadow-lg: 0 12px 32px rgba(11, 13, 16, 0.08);
-  --shadow-primary: 0 6px 18px rgba(0, 102, 255, 0.22);
+  --shadow-primary: 0 6px 18px rgba(79, 70, 229, 0.22);
 
   /* ── Gradientes ───────────────────────────────────────────────────── */
-  --grad-primary: linear-gradient(135deg, #0066ff 0%, #00b9f1 100%);
+  --grad-primary: linear-gradient(135deg, #4F46E5 0%, #CA8A04 100%);
   --grad-deep: linear-gradient(180deg, #1a2333 0%, #10192a 100%); /* sidebar escura */
 
   /* ── Tokens legados (Missão / painel IA) — serão retrabalhados ─────── */
@@ -100,11 +100,22 @@
   --ink-strong: #ffffff;
   --muted: #9aa4b5;
 
+  /* Indigo/ouro dessaturados no escuro — versão clara/vívida (#818CF8) brilhava
+     demais ("ardia o olho") em cima do fundo quase preto. Tom mais fechado e um
+     glow bem mais discreto resolvem isso. */
+  --c-primary: #5B5FC7;
+  --c-primary-strong: #6D71D6;
+  --accent-vivid: #D1A53D;
+  --accent-2: #D1A53D;
+
   --success-soft: rgba(18, 183, 106, 0.16);
   --warning-soft: rgba(247, 144, 9, 0.16);
   --danger-soft: rgba(240, 68, 56, 0.16);
-  --accent-soft: rgba(0, 102, 255, 0.18);
+  --accent-soft: rgba(91, 95, 199, 0.14);
   --surface-translucent: rgba(20, 23, 29, 0.8);
+
+  --shadow-primary: 0 4px 14px rgba(91, 95, 199, 0.12);
+  --grad-primary: linear-gradient(135deg, #5B5FC7 0%, #D1A53D 100%);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -465,7 +476,7 @@ h2 {
 .sidebar {
   height: 100vh;
   padding: 20px 14px;
-  background: var(--surface);
+  background: var(--bg);
   border-right: 1px solid var(--line);
   color: var(--muted);
   overflow-y: auto;
@@ -1079,7 +1090,7 @@ h2 {
 
 .button-primary {
   color: #fff;
-  background: var(--grad-primary);
+  background: var(--c-primary);
   box-shadow: var(--shadow-primary);
 }
 
@@ -2473,21 +2484,6 @@ progress::-webkit-progress-value {
 /* ============================================================================
    TOPBAR — melhorias
    ========================================================================== */
-.search-kbd {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--surface-soft);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -2578,6 +2574,114 @@ progress::-webkit-progress-value {
 .user-dropdown-item.active { color: var(--c-primary); background: var(--accent-soft); }
 
 .theme-dropdown { min-width: 140px; }
+
+/* ── Busca global (topbar) ── */
+.global-search { position: relative; width: min(440px, 100%); }
+.global-search .search-box { width: 100%; }
+.global-search-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.global-search-hint { padding: 10px 12px; font-size: 12.5px; color: var(--muted); }
+.global-search-group {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.global-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.global-search-item:hover { background: var(--accent-soft); color: var(--c-primary); }
+.global-search-item svg { flex-shrink: 0; color: var(--muted); }
+.global-search-item:hover svg { color: var(--c-primary); }
+.global-search-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.global-search-item-meta { flex-shrink: 0; font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+/* ── Sino de notificações (prazos a vencer) ── */
+.notif-dropdown { min-width: 320px; padding: 6px; }
+.notif-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.notif-count {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 10px;
+}
+.notif-empty { padding: 10px 12px; font-size: 12.5px; color: var(--muted); }
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.notif-item:hover { background: var(--surface-soft); }
+.notif-item-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--muted-bg);
+  color: var(--muted);
+}
+.notif-item-icon.status-urgente { background: var(--danger-soft); color: var(--danger); }
+.notif-item-icon.status-atencao { background: var(--warning-soft); color: var(--warning); }
+.notif-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif-item-body strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notif-item-body span { font-size: 11.5px; color: var(--muted); }
 
 .topbar-new-btn {
   display: inline-flex;
@@ -4677,6 +4781,88 @@ progress::-webkit-progress-value {
   gap: 16px;
 }
 
+/* ── Calendário de prazos (dashboard) ── */
+.prazos-calendar { flex-shrink: 0; }
+.prazos-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.prazos-calendar-nav button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.prazos-calendar-nav button:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.prazos-calendar-nav span { min-width: 84px; text-align: center; }
+
+.prazos-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.prazos-calendar-weekday {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.prazos-calendar-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: default;
+}
+.prazos-calendar-cell.empty { visibility: hidden; }
+.prazos-calendar-cell.has-prazo { cursor: pointer; font-weight: 600; background: var(--accent-soft); color: var(--c-primary); }
+.prazos-calendar-cell.has-prazo:hover { background: var(--c-primary); color: #fff; }
+.prazos-calendar-cell.today { box-shadow: inset 0 0 0 1.5px var(--c-primary); }
+.prazos-calendar-dot {
+  position: absolute;
+  bottom: 3px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.prazos-calendar-list { border-top: 1px solid var(--line); }
+.prazos-calendar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 2px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.prazos-calendar-item:hover { background: var(--surface-soft); }
+.prazos-calendar-item-dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.prazos-calendar-item-dot.status-urgente { background: var(--danger); }
+.prazos-calendar-item-dot.status-atencao { background: var(--warning); }
+.prazos-calendar-item-dot.status-seguro { background: var(--success); }
+.prazos-calendar-item-title { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prazos-calendar-item-date { flex-shrink: 0; font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
 .cc-stat-grid {
   flex-shrink: 0;
   display: grid;
@@ -6497,8 +6683,9 @@ progress::-webkit-progress-value {
 .case-execute-btn:hover { background: var(--c-primary-strong); }
 
 /* ── Prévia da peça ── */
-.case-doc-preview { display: flex; flex-direction: column; }
-.case-doc-preview-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+/* Cabeçalho e botões sempre visíveis; só o corpo da peça encolhe (com fade). */
+.case-doc-preview { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.case-doc-preview-head { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .case-doc-preview-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .case-doc-preview-title-row > strong { font-size: 14px; font-weight: 700; color: var(--ink-strong); }
 .case-doc-preview-tags { display: flex; align-items: center; gap: 8px; }
@@ -6518,6 +6705,8 @@ progress::-webkit-progress-value {
 
 .case-doc-preview-body {
   position: relative;
+  flex: 1;
+  min-height: 0;
   max-height: 220px;
   overflow: hidden;
   padding: 4px 4px 0;
@@ -6533,7 +6722,7 @@ progress::-webkit-progress-value {
   background: linear-gradient(to bottom, transparent, var(--surface));
 }
 .case-doc-preview-body h1, .case-doc-preview-body h2 { font-size: 13px; margin: 8px 0 4px; }
-.case-doc-preview-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.case-doc-preview-actions { flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .case-doc-preview-actions .case-icon-btn { margin-left: auto; }
 
 /* ── Grade de documentos ── */
@@ -6632,45 +6821,92 @@ progress::-webkit-progress-value {
   gap: 16px;
 }
 .case-workspace-default .case-workspace-grid { height: auto; min-height: 0; flex: 1; }
-.case-workspace-default .case-col { height: 100%; max-height: none; overflow: visible; }
+/* overflow:hidden (e não visible) — senão o conteúdo do painel da peça escapa da
+   coluna e renderiza por cima da barra de ações lá embaixo. */
+.case-workspace-default .case-col { height: 100%; max-height: none; overflow: hidden; }
+/* Padding menor que o padrão (24px): o workspace inteiro cabe numa tela só, então
+   cada painel precisa devolver espaço vertical pro conteúdo. */
+.case-workspace-default .case-col > .panel { min-height: 0; padding: 12px 16px; }
+.case-workspace-default .case-col .section-label { margin-bottom: 6px !important; }
+/* Estado vazio compacto: no workspace ele divide a coluna com outros painéis. */
+.case-workspace-default .case-col .panel-empty { padding: 8px 0; gap: 6px; }
+.case-workspace-default .case-col .panel-empty svg { width: 18px; height: 18px; }
+.case-workspace-default .case-col .panel-empty span { font-size: 11.5px; }
 
 .mono { font-family: var(--font-mono); }
 
-.case-info-bar { display: flex; flex-direction: column; gap: 0; flex-shrink: 0; }
+/* Faixa de metadados compacta: rótulo e valor na mesma linha. Antes eram duas linhas
+   empilhadas por campo (~178px de altura), o que não sobrava espaço pras colunas
+   abaixo — o workspace precisa caber numa tela só. */
+.case-info-bar { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; padding: 14px 20px; }
 .case-info-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  align-items: center;
-  gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 22px;
+  padding: 0;
+  border-bottom: none;
 }
-.case-info-row:last-of-type { border-bottom: none; padding-bottom: 2px; }
-.case-info-row > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.case-info-row span:first-child { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); }
-.case-info-row strong { font-size: 14px; font-weight: 600; color: var(--ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.case-info-row:first-of-type { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.case-info-row > div { display: flex; flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; }
+.case-info-row span:first-child { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); }
+.case-info-row strong { font-size: 13px; font-weight: 600; color: var(--ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.case-info-row .case-archive-link { margin-left: auto; }
 
-/* Timeline do caso — cronológica, mais antigo primeiro */
-.case-timeline-panel { flex: 1; min-height: 0; overflow-y: auto; }
-.case-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+/* Timeline do caso — cronológica, mais antigo primeiro.
+   Sem scroll próprio: mostra os eventos mais recentes e resume o resto num "+N".
+   Timeline e Documentos dividem a coluna central (3:2) — sem isso o painel de
+   documentos (flex-shrink:0) tomava tudo e espremia a timeline a ~48px. */
+.case-timeline-panel { position: relative; flex: 5; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.case-timeline-panel .ws-section-header { flex-shrink: 0; }
+/* Fade no rodapé: em telas baixas o último evento é cortado — assim o corte parece
+   intencional em vez de quebrado. Em telas altas some no fundo do painel. */
+.case-timeline-panel::after {
+  content: "";
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 24px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--surface));
+}
+.case-col-main > .doc-list-card { flex: 3 1 0; min-height: 0; overflow: hidden; }
+.case-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .case-timeline li { display: flex; align-items: flex-start; gap: 10px; }
 .case-timeline-icon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--c-primary);
 }
-.case-timeline strong { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-strong); }
-.case-timeline strong .muted { font-size: 10.5px; font-weight: 500; color: var(--muted); text-transform: none; }
-.case-timeline span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+/* Cada evento numa linha só — a descrição trunca com reticências (o título completo
+   fica no tooltip). Empilhado em duas linhas, 3 eventos não cabiam no painel. */
+.case-timeline li { align-items: center; }
+.case-timeline strong { flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-strong); }
+.case-timeline-desc { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.case-timeline-date { flex-shrink: 0; font-size: 10.5px; font-weight: 500; color: var(--muted); }
 
 /* Quadro de prazos */
-.case-prazos-panel { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.case-prazos-panel { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.case-prazos-panel .ws-section-header { flex-shrink: 0; }
+
+/* Link "+N eventos anteriores" / "+N prazos" — mesmo padrão do .case-doc-more */
+.case-list-more {
+  flex-shrink: 0;
+  margin-top: 10px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: default;
+}
 .case-prazo-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .case-prazo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .case-prazo-row {
@@ -6804,7 +7040,7 @@ progress::-webkit-progress-value {
   height: 40px;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 6px 20px rgba(0, 102, 255, 0.35);
+  box-shadow: var(--shadow-primary);
 }
 .case-primary-cta.button-primary:disabled {
   opacity: 1;

@@ -18,7 +18,7 @@ type PipelineStepperProps = {
   onAvancarEtapa?: () => void
 }
 
-/** Esteira de pipeline (Cadastro → Documentos → Gerar Peças → Prazos → Encerramento),
+/** Esteira de pipeline (Cadastro → Documentos → Gerar Peças → Encerramento),
  *  compartilhada entre o workspace do caso, Documentos e Gerar Peças — fica visualmente
  *  fixa e idêntica em todas essas telas. */
 export function PipelineStepper({
@@ -82,7 +82,9 @@ export function PipelineStepper({
       {proximaEtapaLabel && onAvancarEtapa && (
         <div className="pipeline-advance">
           <button className="pipeline-advance-btn" onClick={onAvancarEtapa}>
-            {podeAvancarEtapa ? `Avançar para ${proximaEtapaLabel}` : `${proximaEtapaLabel} bloqueado`}
+            {podeAvancarEtapa
+              ? (proximaEtapaLabel === 'Encerramento' ? 'Encerrar Caso' : `Avançar para ${proximaEtapaLabel}`)
+              : `${proximaEtapaLabel} bloqueado`}
           </button>
           {!podeAvancarEtapa && avancarHint && (
             <p className="advance-hint"><Lock size={11} /> {avancarHint}</p>

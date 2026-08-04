@@ -2,22 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive, CalendarClock, CheckCircle2, Circle, Copy,
+  Archive, CalendarClock, CheckCircle2, Copy,
   FileText, Gavel, Pencil, PenLine, Play, Plus,
-  Share2, ShieldCheck, Sparkles, Star, Trash2, Upload, X, Zap,
+  Share2, Sparkles, Star, Trash2, Upload, X, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { caseStatusLabel, caseStatusOptions, formatDate, relativeTime } from '@/lib/utils'
 import { casesService, type UpdateCasePatch } from '@/services/cases.service'
 import { documentosService } from '@/services/documentos.service'
 import { monitoringService } from '@/services/monitoring.service'
 import { prazosService, type Prazo } from '@/services/prazos.service'
 import { toast } from '@/store/toastStore'
-import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/axios'
 import type { CaseStatus, EtapaPipeline } from '@/types/domain.types'
-import { extrairSecaoHtml, MODULOS_PECA } from '@/lib/pecaSections'
-import { PIPELINE } from '@/lib/pipeline'
+import { PIPELINE, pipelineIndex } from '@/lib/pipeline'
 import { PipelineStepper } from '@/components/case/PipelineStepper'
 
 const STATUS_BADGE_CLASS: Record<CaseStatus, string> = {
@@ -52,6 +51,11 @@ interface PecaGerada {
 
 const DOC_TIPOS = ['Petição Inicial', 'Procuração', 'Contrato', 'Documentos pessoais', 'Comprovantes', 'Conversas', 'Outros anexos']
 
+// O workspace do caso cabe numa tela só (sem scroll), então timeline e prazos mostram
+// os itens mais relevantes e resumem o resto num "+N" — mesmo padrão do painel de Documentos.
+const TIMELINE_VISIVEL = 3
+const PRAZOS_VISIVEL = 4
+
 export function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -67,6 +71,7 @@ export function CaseDetailPage() {
   const [prazoEditando, setPrazoEditando] = useState<Prazo | null>(null)
   const [prazoForm, setPrazoForm] = useState({ titulo: '', dataVencimento: '', responsavel: '', observacoes: '' })
   const [mostrarAndamentoForm, setMostrarAndamentoForm] = useState(false)
+  const [confirmandoEncerramento, setConfirmandoEncerramento] = useState(false)
   const [andamentoTexto, setAndamentoTexto] = useState('')
   const [dragOverDocs, setDragOverDocs] = useState(false)
   const [viewOverride, setViewOverride] = useState<EtapaPipeline | null>(null)
@@ -80,7 +85,6 @@ export function CaseDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
-  const user = useAuthStore((s) => s.user)
 
   const { data: legalCase, isLoading } = useQuery({
     queryKey: ['case', id],
@@ -131,8 +135,18 @@ export function CaseDetailPage() {
       qc.invalidateQueries({ queryKey: ['case', id] })
       qc.invalidateQueries({ queryKey: ['cases'] })
       setViewOverride(null)
+      setConfirmandoEncerramento(false)
     },
   })
+
+  // Encerrar o caso não navega pra nenhuma tela — é uma ação direta (com confirmação,
+  // já que muda o status pra finalizado) que só atualiza o caso no lugar.
+  function handleAvancar() {
+    if (avancarEtapa.isPending || !nextStage) return
+    if (!canAdvance) { toast(currentReq.hint, 'warning'); return }
+    if (nextStage.key === 'encerramento') { setConfirmandoEncerramento(true); return }
+    avancarEtapa.mutate(nextStage.key)
+  }
 
   const uploadDoc = useMutation({
     mutationFn: ({ file, tipo }: { file: File; tipo: string }) => documentosService.upload(id!, file, tipo),
@@ -215,12 +229,14 @@ export function CaseDetailPage() {
   }
 
   // Caso já criado ⇒ Cadastro conta como concluído; corrente começa em Documentos.
-  const storedIdx = PIPELINE.findIndex((s) => s.key === legalCase?.etapaAtual)
+  // pipelineIndex traduz etapas legadas ('prazos', 'revisao') pra esteira atual.
+  const storedIdx = pipelineIndex(legalCase?.etapaAtual)
 
   // A etapa salva só avança quando o usuário clica em "Avançar", mas o progresso real
   // (documentos anexados, peça gerada...) pode já estar mais adiantado — segue o requisito
-  // real de cada etapa em vez de travar no valor salvo. "Encerramento" nunca é automático.
-  let derivedIdx = PIPELINE.length - 2 // Prazos: padrão quando tudo antes dela já foi cumprido
+  // real de cada etapa em vez de travar no valor salvo. "Encerramento" nunca é automático,
+  // é sempre uma ação explícita (ver handleAvancar / confirmandoEncerramento).
+  let derivedIdx = PIPELINE.length - 2 // Gerar Peças: teto padrão até o usuário encerrar de propósito
   for (let i = 1; i < PIPELINE.length - 1; i++) {
     if (!stageReq[PIPELINE[i].key].met) { derivedIdx = i; break }
   }
@@ -256,18 +272,6 @@ export function CaseDetailPage() {
   const podeAvancarEtapaView = viewedIdx < currentPipelineIdx
 
   const arquivadoManualmente = legalCase?.status === 'arquivado'
-  const tempoTotalDias = legalCase
-    ? Math.max(1, Math.round((new Date(legalCase.updatedAt).getTime() - new Date(legalCase.createdAt).getTime()) / 86400000))
-    : 0
-
-  // ── Estrutura da peça principal (usada no resumo de Encerramento) ──
-  const pecaRevisao = pecas[0]
-  const secoesPeca = pecaRevisao
-    ? MODULOS_PECA.map((m) => ({ ...m, html: extrairSecaoHtml(pecaRevisao.conteudo, m.termos) }))
-    : []
-  const secoesOkCount = secoesPeca.filter((s) => s.html !== null).length
-  const estruturaCompleta = pecaRevisao ? secoesOkCount === MODULOS_PECA.length : false
-  const secoesFaltando = secoesPeca.filter((s) => s.html === null).map((s) => s.nome)
 
   // ── Visão padrão do workspace: progresso e timeline real do caso ──
   const progressoPct = Math.round((currentPipelineIdx / (PIPELINE.length - 1)) * 100)
@@ -327,13 +331,6 @@ export function CaseDetailPage() {
     files.forEach((file) => uploadDoc.mutate({ file, tipo: 'Outros' }))
   }
 
-  function exportarWord(peca: PecaGerada) {
-    const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body>${peca.conteudo}</body></html>`
-    const blob = new Blob([html], { type: 'application/msword' })
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${peca.categoria}_v${peca.versao}.doc` })
-    a.click(); URL.revokeObjectURL(a.href)
-  }
-
   function copiarPeca(peca: PecaGerada) {
     const tmp = document.createElement('div')
     tmp.innerHTML = peca.conteudo
@@ -390,14 +387,10 @@ export function CaseDetailPage() {
           {nextStage ? (
             <Button
               className="case-primary-cta"
-              onClick={() => {
-                if (avancarEtapa.isPending) return
-                if (canAdvance) avancarEtapa.mutate(nextStage.key)
-                else toast(currentReq.hint, 'warning')
-              }}
+              onClick={handleAvancar}
               title={!canAdvance ? currentReq.hint : undefined}
             >
-              <Zap size={15} /> {avancarEtapa.isPending ? 'Executando...' : 'Executar Próxima Ação'}
+              <Zap size={15} /> {avancarEtapa.isPending ? 'Executando...' : nextStage.key === 'encerramento' ? 'Encerrar Caso' : 'Executar Próxima Ação'}
             </Button>
           ) : (
             <Button
@@ -424,11 +417,7 @@ export function CaseDetailPage() {
         proximaEtapaLabel={nextStage?.label}
         podeAvancarEtapa={canAdvance}
         avancarHint={currentReq.hint}
-        onAvancarEtapa={() => {
-          if (avancarEtapa.isPending || !nextStage) return
-          if (canAdvance) avancarEtapa.mutate(nextStage.key)
-          else toast(currentReq.hint, 'warning')
-        }}
+        onAvancarEtapa={handleAvancar}
       />
 
       {/* ── Edit form ── */}
@@ -501,115 +490,6 @@ export function CaseDetailPage() {
             <Button onClick={() => navigate(`/clientes/${legalCase.clienteId}`)}>Voltar para o Cliente <Play size={13} fill="currentColor" /></Button>
           </div>
         </div>
-       ) : displayStage.key === 'encerramento' ? (
-        <div className="closing-split">
-        <div className="closing-layout-v2 closing-main-col">
-          <p className="section-label" style={{ marginBottom: 12 }}>RESUMO DA OPERAÇÃO</p>
-          <div className="closing-summary-grid">
-            <div className="closing-summary-card"><span>CASO</span><strong>{legalCase.title || legalCase.clientName}</strong></div>
-            <div className="closing-summary-card"><span>TIPO</span><strong>{pecas[0]?.categoria ?? legalCase.tipoServico ?? '—'}</strong></div>
-            <div className="closing-summary-card"><span>TEMPO TOTAL</span><strong>{tempoTotalDias} dia{tempoTotalDias !== 1 ? 's' : ''}</strong></div>
-            <div className="closing-summary-card"><span>RESPONSÁVEL</span><strong>{user?.name?.split(' ')[0] ?? '—'}</strong></div>
-          </div>
-
-          <p className="section-label" style={{ margin: '24px 0 12px' }}>RESULTADO DA EXECUÇÃO</p>
-          <div className="closing-result-grid">
-            <div className="closing-result-card">
-              <span className="closing-result-icon"><FileText size={16} /></span>
-              <span>Peça jurídica criada</span>
-              <span className={`closing-result-check ${hasPeca ? 'ok' : ''}`}>{hasPeca ? <CheckCircle2 size={16} /> : <Circle size={16} />}</span>
-            </div>
-            <div className="closing-result-card">
-              <span className="closing-result-icon"><FileText size={16} /></span>
-              <span>Documentos organizados</span>
-              <span className={`closing-result-check ${docCount > 0 ? 'ok' : ''}`}>{docCount > 0 ? <CheckCircle2 size={16} /> : <Circle size={16} />}</span>
-            </div>
-            <div className="closing-result-card">
-              <span className="closing-result-icon"><ShieldCheck size={16} /></span>
-              <span>Revisão concluída</span>
-              <span className="closing-result-check ok"><CheckCircle2 size={16} /></span>
-            </div>
-            <div className="closing-result-card">
-              <span className="closing-result-icon"><Sparkles size={16} /></span>
-              <span>Histórico salvo</span>
-              <span className="closing-result-check ok"><CheckCircle2 size={16} /></span>
-            </div>
-          </div>
-
-          <p className="section-label" style={{ margin: '24px 0 12px' }}>REGISTRO DA EXECUÇÃO</p>
-          <div className="closing-record-table">
-            <div className="closing-record-head">
-              <span>Artefato</span>
-              <span>Última modificação</span>
-              <span>Ações</span>
-            </div>
-            {pecas.map((p) => (
-              <div key={p.id} className="closing-record-row">
-                <span className="closing-record-name"><FileText size={14} /> {p.categoria} <span className="muted">v{p.versao}</span></span>
-                <span className="muted">{formatDate(p.createdAt)}</span>
-                <span className="closing-record-actions">
-                  <button onClick={() => navigate(`/cases/${id}/pecas`)}>Visualizar</button>
-                  <button onClick={() => exportarWord(p)}>Exportar</button>
-                </span>
-              </div>
-            ))}
-            {docCount > 0 && (
-              <div className="closing-record-row">
-                <span className="closing-record-name"><FileText size={14} /> Documentos anexados <span className="muted">{docCount} arquivo{docCount !== 1 ? 's' : ''}</span></span>
-                <span className="muted">{formatDate(legalCase.updatedAt)}</span>
-                <span className="closing-record-actions">
-                  <button onClick={() => navigate(`/cases/${id}/documentos`)}>Visualizar</button>
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="closing-actions-row">
-            <Button variant="secondary" onClick={() => arquivar.mutate()} disabled={arquivar.isPending}>
-              <Archive size={14} /> {arquivar.isPending ? 'Arquivando...' : 'Arquivar caso'}
-            </Button>
-            <Button onClick={() => navigate(`/clientes/${legalCase.clienteId}`)}>Voltar para o Cliente <Play size={13} fill="currentColor" /></Button>
-          </div>
-        </div>
-
-        {/* ── Orbian Intelligence: síntese real da operação ── */}
-        <aside className="ia-panel closing-ia-panel">
-          <div className="ia-panel-head">
-            <span className="ia-panel-icon"><Sparkles size={16} /></span>
-            <strong>Orbian Intelligence</strong>
-          </div>
-          <p className="closing-ia-title">Síntese da Operação</p>
-          <ul className="closing-ia-list">
-            <li>
-              <Sparkles size={14} />
-              Execução concluída {docCount > 0 ? `com ${docCount} documento${docCount !== 1 ? 's' : ''} vinculado${docCount !== 1 ? 's' : ''}` : 'sem documentos vinculados'}.
-            </li>
-            <li>
-              <CheckCircle2 size={14} />
-              {hasPeca ? 'A peça foi criada e está disponível para exportação.' : 'Nenhuma peça foi gerada nesta execução.'}
-            </li>
-            <li>
-              <FileText size={14} />
-              O histórico desta operação foi preservado.
-            </li>
-            <li>
-              <Sparkles size={14} />
-              Esta execução pode ser utilizada como referência futura.
-            </li>
-          </ul>
-
-          {hasPeca && (
-            <div className="intel-card" style={{ marginTop: 'auto' }}>
-              <span className="intel-card-label">{estruturaCompleta ? 'ESTRUTURA COMPLETA' : 'PONTO DE ATENÇÃO'}</span>
-              <p>
-                {estruturaCompleta
-                  ? 'A peça segue a estrutura padrão completa: qualificação, fatos, fundamentação, pedidos e fechamento.'
-                  : `A peça ficou sem: ${secoesFaltando.join(', ')}.`}
-              </p>
-            </div>
-          )}
-        </aside>
-        </div>
        ) : (
         <div className="case-workspace-default">
         <div className="panel case-info-bar">
@@ -671,24 +551,32 @@ export function CaseDetailPage() {
         {/* ── Coluna central: timeline do caso ── */}
         <div className="case-col case-col-main">
           <div className="panel case-timeline-panel">
-            <p className="section-label" style={{ marginBottom: 14 }}>TIMELINE DO CASO</p>
+            <div className="ws-section-header">
+              <p className="section-label" style={{ margin: 0 }}>TIMELINE DO CASO</p>
+              {timeline.length > TIMELINE_VISIVEL && (
+                <span className="case-list-more" style={{ margin: 0 }}>
+                  +{timeline.length - TIMELINE_VISIVEL} anterior{timeline.length - TIMELINE_VISIVEL !== 1 ? 'es' : ''}
+                </span>
+              )}
+            </div>
             {timeline.length === 0 ? (
               <p style={{ color: 'var(--muted)', fontSize: 13 }}>Nenhum evento registrado ainda.</p>
             ) : (
-              <ul className="case-timeline">
-                {timeline.map((ev, i) => {
-                  const EvIcon = ev.icon
-                  return (
-                    <li key={i}>
-                      <span className="case-timeline-icon"><EvIcon size={13} /></span>
-                      <div>
-                        <strong>{ev.titulo} <span className="muted">{formatDate(ev.quando)}</span></strong>
-                        <span>{ev.descricao}</span>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+              <>
+                <ul className="case-timeline">
+                  {timeline.slice(-TIMELINE_VISIVEL).map((ev, i) => {
+                    const EvIcon = ev.icon
+                    return (
+                      <li key={i} title={`${ev.titulo} — ${ev.descricao}`}>
+                        <span className="case-timeline-icon"><EvIcon size={13} /></span>
+                        <strong>{ev.titulo}</strong>
+                        <span className="case-timeline-desc">{ev.descricao}</span>
+                        <span className="case-timeline-date">{formatDate(ev.quando)}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
             )}
           </div>
 
@@ -704,7 +592,9 @@ export function CaseDetailPage() {
                 <Upload size={13} /> Novo Upload
               </button>
             </div>
-            <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '-4px 0 8px' }}>Arraste arquivos aqui para anexar rapidamente.</p>
+            {documentosFiltrados.length > 0 && (
+              <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '-4px 0 8px' }}>Arraste arquivos aqui para anexar rapidamente.</p>
+            )}
 
             <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt" onChange={onFileChange} />
@@ -759,26 +649,6 @@ export function CaseDetailPage() {
               </button>
             </div>
 
-            {mostrarPrazoForm && (
-              <div className="doc-tipo-picker case-prazo-form">
-                <label className="nc-field">Título<input value={prazoForm.titulo} onChange={(e) => setPrazoForm({ ...prazoForm, titulo: e.target.value })} placeholder="Ex: Contestação" /></label>
-                <div className="nc-field-pair">
-                  <label className="nc-field">Vencimento<input type="date" value={prazoForm.dataVencimento} onChange={(e) => setPrazoForm({ ...prazoForm, dataVencimento: e.target.value })} /></label>
-                  <label className="nc-field">Responsável<input value={prazoForm.responsavel} onChange={(e) => setPrazoForm({ ...prazoForm, responsavel: e.target.value })} /></label>
-                </div>
-                <label className="nc-field">Observações<textarea rows={2} value={prazoForm.observacoes} onChange={(e) => setPrazoForm({ ...prazoForm, observacoes: e.target.value })} /></label>
-                <div className="button-row">
-                  <Button
-                    onClick={() => salvarPrazo.mutate()}
-                    disabled={!prazoForm.titulo || !prazoForm.dataVencimento || salvarPrazo.isPending}
-                  >
-                    {salvarPrazo.isPending ? 'Salvando...' : prazoEditando ? 'Salvar alterações' : 'Adicionar'}
-                  </Button>
-                  <Button variant="secondary" onClick={() => { setMostrarPrazoForm(false); setPrazoEditando(null) }}>Cancelar</Button>
-                </div>
-              </div>
-            )}
-
             {prazos.length === 0 ? (
               <div className="panel-empty">
                 <CalendarClock size={22} />
@@ -786,7 +656,7 @@ export function CaseDetailPage() {
               </div>
             ) : (
               <ul className="case-prazo-list">
-                {prazos.map((p) => (
+                {prazos.slice(0, PRAZOS_VISIVEL).map((p) => (
                   <li key={p.id} className={`case-prazo-row status-${p.status}`}>
                     <div>
                       <strong className={p.concluido ? 'strike' : ''}>{p.titulo}</strong>
@@ -807,6 +677,9 @@ export function CaseDetailPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {prazos.length > PRAZOS_VISIVEL && (
+              <span className="case-list-more">+{prazos.length - PRAZOS_VISIVEL} prazo{prazos.length - PRAZOS_VISIVEL !== 1 ? 's' : ''} cadastrado{prazos.length - PRAZOS_VISIVEL !== 1 ? 's' : ''}</span>
             )}
           </div>
         </div>
@@ -843,6 +716,39 @@ export function CaseDetailPage() {
         </div>
        )}
       </div>
+
+      {mostrarPrazoForm && (
+        <div className="confirm-dialog-overlay" onClick={() => { setMostrarPrazoForm(false); setPrazoEditando(null) }}>
+          <div className="confirm-dialog confirm-dialog-wide" style={{ textAlign: 'left' }} onClick={(e) => e.stopPropagation()}>
+            <p className="section-label" style={{ marginBottom: 14 }}>{prazoEditando ? 'EDITAR PRAZO' : 'ADICIONAR PRAZO'}</p>
+            <label className="nc-field" style={{ marginTop: 0 }}>Título<input value={prazoForm.titulo} onChange={(e) => setPrazoForm({ ...prazoForm, titulo: e.target.value })} placeholder="Ex: Contestação" /></label>
+            <div className="nc-field-pair">
+              <label className="nc-field">Vencimento<input type="date" value={prazoForm.dataVencimento} onChange={(e) => setPrazoForm({ ...prazoForm, dataVencimento: e.target.value })} /></label>
+              <label className="nc-field">Responsável<input value={prazoForm.responsavel} onChange={(e) => setPrazoForm({ ...prazoForm, responsavel: e.target.value })} /></label>
+            </div>
+            <label className="nc-field">Observações<textarea rows={2} value={prazoForm.observacoes} onChange={(e) => setPrazoForm({ ...prazoForm, observacoes: e.target.value })} /></label>
+            <div className="confirm-dialog-actions">
+              <Button variant="secondary" onClick={() => { setMostrarPrazoForm(false); setPrazoEditando(null) }}>Cancelar</Button>
+              <Button
+                onClick={() => salvarPrazo.mutate()}
+                disabled={!prazoForm.titulo || !prazoForm.dataVencimento || salvarPrazo.isPending}
+              >
+                {salvarPrazo.isPending ? 'Salvando...' : prazoEditando ? 'Salvar alterações' : 'Adicionar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmandoEncerramento}
+        title={`Encerrar "${legalCase.title || legalCase.clientName}"?`}
+        description="O caso será marcado como finalizado. Você ainda pode reabri-lo depois, se precisar."
+        confirmLabel="Encerrar Caso"
+        loading={avancarEtapa.isPending}
+        onConfirm={() => avancarEtapa.mutate('encerramento')}
+        onCancel={() => setConfirmandoEncerramento(false)}
+      />
     </div>
   )
 }

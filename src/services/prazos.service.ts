@@ -38,6 +38,12 @@ export const prazosService = {
     return data
   },
 
+  /** Todos os prazos do usuário, de todos os casos — usado no calendário do dashboard. */
+  async listAll(): Promise<Prazo[]> {
+    const { data } = await api.get<Prazo[]>('/api/prazos')
+    return data
+  },
+
   async create(input: CriarPrazoInput): Promise<Prazo> {
     const { data } = await api.post<Prazo>('/api/prazos', input)
     return data

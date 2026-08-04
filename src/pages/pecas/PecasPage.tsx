@@ -221,7 +221,6 @@ function logoSrc(): string | null {
       if (pecaSelecionada && editedContent !== pecaSelecionada.conteudo) {
         await api.patch(`/api/casos/${casoId}/pecas/${pecaSelecionada.id}`, { conteudo: editedContent })
       }
-      return casesService.update(casoId!, { etapaAtual: 'prazos' })
     },
     onSuccess: () => navigate(`/cases/${casoId}`),
   })
@@ -396,7 +395,7 @@ function logoSrc(): string | null {
           </label>
 
           <Button
-            style={{ width: '100%', justifyContent: 'center', marginTop: 16, background: 'var(--grad-primary)' }}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
             onClick={() => gerar.mutate()}
             disabled={!categoria || gerar.isPending}
           >
