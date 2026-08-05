@@ -11,39 +11,39 @@
   --font-ui: "Geist Sans", var(--font-body);
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
-  /* ── Cores principais (Precision Legal OS) ────────────────────────── */
-  --c-primary: #4F46E5;        /* Primary indigo — CTAs, links, ativo, ícones */
-  --c-primary-strong: #4338CA; /* hover/pressed */
+  /* ── Cores principais (tema "Orbian" — tweakcn) ────────────────────── */
+  --c-primary: #3B608F;        /* Steel blue — CTAs, links, ativo, ícones */
+  --c-primary-strong: #304E74; /* hover/pressed */
   --accent-vivid: #CA8A04;     /* Gold — reservado para insights de IA / destaque secundário */
   --accent-2: #CA8A04;         /* fim do gradiente de destaque */
-  --c-deep: #1a1c1f;           /* ink escuro (compat.) */
-  --c-deep-2: #0b0d10;
+  --c-deep: #111827;           /* ink escuro (compat.) */
+  --c-deep-2: #06090E;
 
   /* ── Superfícies ──────────────────────────────────────────────────── */
-  --bg: #EEF0F4;              /* Background da aplicação — cinza visível, cards flutuam por cima */
+  --bg: #FAFBFC;              /* Background da aplicação */
   --surface: #ffffff;         /* Card / superfície */
-  --surface-soft: #E4E7EE;    /* well / inset */
-  --muted-bg: #E4E7EE;        /* muted */
-  --line: #DCE0E8;            /* Hairline border — assinatura */
-  --line-strong: #C2C8D6;
-  --surface-translucent: rgba(238, 240, 244, 0.8); /* topbar com blur */
+  --surface-soft: #F3F4F6;    /* well / inset */
+  --muted-bg: #F3F4F6;        /* muted */
+  --line: #E5EAF0;            /* Hairline border — assinatura */
+  --line-strong: #C5D0DD;
+  --surface-translucent: rgba(250, 251, 252, 0.8); /* topbar com blur */
 
   /* ── Texto ────────────────────────────────────────────────────────── */
-  --ink: #1a1c1f;            /* texto principal */
-  --ink-strong: #0b0d10;
-  --muted: #667085;          /* texto secundário / meta */
+  --ink: #111827;            /* texto principal */
+  --ink-strong: #06090E;
+  --muted: #6B7280;          /* texto secundário / meta */
 
   /* ── Cores semânticas ─────────────────────────────────────────────── */
-  --success: #12b76a;
-  --success-soft: #ecfdf3;
-  --warning: #f79009;
-  --warning-soft: #fffaeb;
-  --danger: #f04438;
-  --danger-soft: #fef3f2;
+  --success: #16A34A;
+  --success-soft: #E9FCF0;
+  --warning: #D97706;
+  --warning-soft: #FEF3E6;
+  --danger: #DC2626;
+  --danger-soft: #FCEDED;
 
   /* ── Acentos derivados ────────────────────────────────────────────── */
   --accent: var(--c-primary);
-  --accent-soft: #ECEAFB;    /* tint claro do primary (nav ativo, badges) */
+  --accent-soft: rgba(59, 96, 143, 0.12);    /* tint claro do primary (nav ativo, badges) */
 
   /* ── Aliases legados (mantém compatibilidade) ─────────────────────── */
   --primary: var(--c-primary);
@@ -53,18 +53,18 @@
   --foreground: var(--ink);
 
   /* ── Raios ────────────────────────────────────────────────────────── */
-  --radius: 12px;       /* cards/painéis */
-  --radius-sm: 8px;     /* controles */
+  --radius: 16px;       /* cards/painéis */
+  --radius-sm: 10px;    /* controles */
   --radius-pill: 9999px;
 
   /* ── Sombras quase invisíveis (glow suave, sem direção) ───────────── */
-  --shadow-sm: 0 1px 2px rgba(11, 13, 16, 0.04);
-  --shadow: 0 1px 3px rgba(11, 13, 16, 0.03), 0 8px 24px rgba(11, 13, 16, 0.04);
-  --shadow-lg: 0 12px 32px rgba(11, 13, 16, 0.08);
-  --shadow-primary: 0 6px 18px rgba(79, 70, 229, 0.22);
+  --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.03), 0 1px 2px -1px rgba(15, 17, 21, 0.03);
+  --shadow: 0 2px 12px rgba(15, 17, 21, 0.03), 0 1px 2px -1px rgba(15, 17, 21, 0.03);
+  --shadow-lg: 0 12px 32px rgba(15, 17, 21, 0.07);
+  --shadow-primary: 0 6px 18px rgba(59, 96, 143, 0.22);
 
   /* ── Gradientes ───────────────────────────────────────────────────── */
-  --grad-primary: linear-gradient(135deg, #4F46E5 0%, #CA8A04 100%);
+  --grad-primary: linear-gradient(135deg, #3B608F 0%, #CA8A04 100%);
   --grad-deep: linear-gradient(180deg, #1a2333 0%, #10192a 100%); /* sidebar escura */
 
   /* ── Tokens legados (Missão / painel IA) — serão retrabalhados ─────── */
@@ -89,33 +89,32 @@
 /* ── Dark mode — superfícies e texto invertidos; sidebar/painéis de IA
    permanecem escuros nos dois temas (mesmo comportamento do orbianlegal.com.br) ── */
 :root[data-theme="dark"] {
-  --bg: #0b0d10;
-  --surface: #14171d;
-  --surface-soft: #1b1f27;
-  --muted-bg: #1e222b;
-  --line: #2a2f3a;
-  --line-strong: #3a4150;
+  --bg: #0F1115;
+  --surface: #16191E;
+  --surface-soft: #1C2128;
+  --muted-bg: #20242B;
+  --line: #282D35;
+  --line-strong: #39404C;
 
-  --ink: #f1f3f6;
+  --ink: #F9FAFB;
   --ink-strong: #ffffff;
-  --muted: #9aa4b5;
+  --muted: #9CA3AF;
 
-  /* Indigo/ouro dessaturados no escuro — versão clara/vívida (#818CF8) brilhava
-     demais ("ardia o olho") em cima do fundo quase preto. Tom mais fechado e um
-     glow bem mais discreto resolvem isso. */
-  --c-primary: #5B5FC7;
-  --c-primary-strong: #6D71D6;
+  /* Mesmo steel blue do modo claro (o tema original já usa a mesma cor nos dois
+     modos), só com hover mais claro em vez de mais escuro. */
+  --c-primary: #3B608F;
+  --c-primary-strong: #456FA6;
   --accent-vivid: #D1A53D;
   --accent-2: #D1A53D;
 
-  --success-soft: rgba(18, 183, 106, 0.16);
-  --warning-soft: rgba(247, 144, 9, 0.16);
-  --danger-soft: rgba(240, 68, 56, 0.16);
-  --accent-soft: rgba(91, 95, 199, 0.14);
-  --surface-translucent: rgba(20, 23, 29, 0.8);
+  --success-soft: rgba(34, 197, 94, 0.16);
+  --warning-soft: rgba(244, 148, 37, 0.16);
+  --danger-soft: rgba(220, 38, 38, 0.16);
+  --accent-soft: rgba(72, 116, 173, 0.16);
+  --surface-translucent: rgba(22, 25, 30, 0.8);
 
-  --shadow-primary: 0 4px 14px rgba(91, 95, 199, 0.12);
-  --grad-primary: linear-gradient(135deg, #5B5FC7 0%, #D1A53D 100%);
+  --shadow-primary: 0 4px 14px rgba(59, 96, 143, 0.18);
+  --grad-primary: linear-gradient(135deg, #3B608F 0%, #D1A53D 100%);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -472,7 +471,7 @@ h2 {
 
 .pipeline-dot-traveler {
   fill: var(--c-primary);
-  filter: drop-shadow(0 0 4px rgba(0, 102, 255, 0.5));
+  filter: drop-shadow(0 0 4px rgba(59, 96, 143, 0.5));
 }
 
 @media (max-width: 900px) {
@@ -501,17 +500,6 @@ h2 {
 
 .brand {
   padding: 4px 10px 22px;
-}
-
-.brand-mark {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border-radius: var(--radius-sm);
-  color: #fff;
-  background: var(--grad-primary);
-  font-weight: 800;
 }
 
 .brand strong,
@@ -4502,7 +4490,7 @@ progress::-webkit-progress-value {
 .progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--grad-primary);
+  background: var(--c-primary);
   transition: width 400ms cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
@@ -5359,7 +5347,7 @@ progress::-webkit-progress-value {
 .case-tile-badge.success { background: var(--success-soft); color: var(--success); }
 .case-tile-badge.muted { background: var(--surface-soft); color: var(--muted); }
 
-.case-tile-number { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); }
+.case-tile-number { font-size: 11.5px; font-weight: 600; color: var(--c-primary); font-family: var(--font-mono); }
 .case-tile-area { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
 
 .case-tile-divider { margin: 14px 0; border-top: 1px solid var(--line); }
@@ -5625,17 +5613,18 @@ progress::-webkit-progress-value {
   gap: 10px;
   padding: 4px 10px 18px;
 }
+/* Logo troca de versão (azul/branca) conforme o tema — sem placa de fundo, a
+   marca flutua direto sobre a sidebar nos dois modos. */
 .brand-mark {
   display: grid;
   place-items: center;
   width: 34px;
   height: 34px;
   flex-shrink: 0;
-  padding: 5px;
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: var(--shadow-sm);
 }
+.brand-mark .logo-img-dark { display: none; }
+:root[data-theme="dark"] .brand-mark .logo-img-light { display: none; }
+:root[data-theme="dark"] .brand-mark .logo-img-dark { display: block; }
 
 .nav-link.active {
   background: var(--accent-soft);
@@ -5658,8 +5647,8 @@ progress::-webkit-progress-value {
 }
 .sidebar .sidebar-user-row:hover { background: var(--muted-bg); border-color: var(--line-strong); }
 .sidebar .sidebar-avatar {
-  background: var(--grad-primary);
-  color: #fff;
+  background: var(--accent-soft);
+  color: var(--c-primary);
 }
 .sidebar .sidebar-user-info strong { color: var(--ink-strong); }
 .sidebar .sidebar-user-info span { color: var(--muted); }
@@ -6669,7 +6658,7 @@ progress::-webkit-progress-value {
 }
 .case-ia-suggestions-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--c-primary); }
 .case-ia-suggestions-head strong { font-size: 13.5px; font-weight: 700; color: var(--ink-strong); }
-.case-ia-suggestion-item { padding: 10px 0; border-top: 1px solid rgba(0, 102, 255, 0.12); }
+.case-ia-suggestion-item { padding: 10px 0; border-top: 1px solid rgba(59, 96, 143, 0.12); }
 .case-ia-suggestion-item:first-of-type { border-top: none; padding-top: 0; }
 .case-ia-suggestion-item p { font-size: 12.5px; line-height: 1.5; color: var(--ink); margin-bottom: 6px; }
 .case-ia-suggestion-item button {

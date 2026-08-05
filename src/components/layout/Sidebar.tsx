@@ -39,7 +39,8 @@ export function Sidebar() {
     <aside className="sidebar" aria-label="Navegação principal">
       <div className="brand">
         <span className="brand-mark">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" height={18} style={{ width: 'auto', display: 'block' }} />
+          <img className="logo-img-light" src={`${import.meta.env.BASE_URL}logo.png`} alt="" height={18} style={{ width: 'auto' }} />
+          <img className="logo-img-dark" src={`${import.meta.env.BASE_URL}logo-white.png`} alt="" height={18} style={{ width: 'auto' }} />
         </span>
         <div>
           <strong>Orbian</strong>
