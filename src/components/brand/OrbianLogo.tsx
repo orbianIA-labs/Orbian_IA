@@ -1,5 +1,3 @@
-import { useId } from 'react'
-
 type OrbianLogoProps = {
   size?: number
   withWordmark?: boolean
@@ -8,23 +6,12 @@ type OrbianLogoProps = {
 }
 
 /**
- * Marca da Orbian — anel circular com gradiente (Primary → Deep Blue).
- * Segue o Logo System oficial. Use `withWordmark` para exibir "Orbian" ao lado.
+ * Marca da Orbian. Use `withWordmark` para exibir "Orbian" ao lado.
  */
 export function OrbianLogo({ size = 32, withWordmark = false, wordmarkColor }: OrbianLogoProps) {
-  const gradId = useId()
-
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-      <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-label="Orbian">
-        <defs>
-          <linearGradient id={gradId} x1="7" y1="6" x2="33" y2="34" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#6FB1FF" />
-            <stop offset="1" stopColor="#2F6BE0" />
-          </linearGradient>
-        </defs>
-        <circle cx="20" cy="20" r="13.5" stroke={`url(#${gradId})`} strokeWidth="7" />
-      </svg>
+      <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Orbian" height={size} style={{ width: 'auto', display: 'block' }} />
       {withWordmark && (
         <strong
           style={{

@@ -126,11 +126,6 @@ export function LoginPage() {
   return (
     <main className="auth-page-split">
       <section className="auth-form-side">
-        <div className="auth-mini-brand">
-          <OrbianLogo size={22} />
-          <span>Orbian</span>
-        </div>
-
         <div className="auth-card">
           {tempToken ? (
             <>
@@ -260,10 +255,10 @@ export function LoginPage() {
       </section>
 
       <section className="auth-brand-side">
-        <div className="auth-brand">
-          <OrbianLogo size={30} withWordmark />
+        <div className="auth-brand-hero">
+          <OrbianLogo size={120} withWordmark wordmarkColor="var(--c-deep)" />
+          <p className="auth-tagline">O sistema operacional da advocacia.</p>
         </div>
-        <p className="auth-tagline">O sistema operacional da advocacia.</p>
 
         <div className="auth-pipeline-wrap">
           <svg className="auth-pipeline-chart" viewBox="0 0 610 150" fill="none">

@@ -260,7 +260,7 @@ function logoSrc(): string | null {
     const html2pdf = (await import('html2pdf.js')).default
     await html2pdf()
       .set({
-        margin: 15,
+        margin: 6,
         filename: `${pecaSelecionada.categoria.replace(/\s+/g, '_')}_v${pecaSelecionada.versao}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
@@ -399,7 +399,7 @@ function logoSrc(): string | null {
             onClick={() => gerar.mutate()}
             disabled={!categoria || gerar.isPending}
           >
-            {gerar.isPending ? <><Loader2 size={15} className="spin" /> Gerando...</> : <><Sparkles size={15} /> Gerar peça com IA</>}
+            {gerar.isPending ? <><Loader2 size={15} className="spin" /> Gerando...</> : 'Executar a Orbian'}
           </Button>
 
           {gerar.isError && (
@@ -576,7 +576,7 @@ function logoSrc(): string | null {
               <div className="copilot-ia">
                 <div className="copilot-ia-header">
                   <Bot size={16} style={{ color: 'var(--c-primary)' }} />
-                  <strong>Copilot IA</strong>
+                  <strong>Orbian Intelligence</strong>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 12 }}>
                   Peça ajuda para melhorar a peça, sugerir argumentos ou revisar trechos.
@@ -668,7 +668,7 @@ function logoSrc(): string | null {
         <div className="pecas-empty">
           <Sparkles size={48} style={{ color: 'var(--c-primary)', opacity: 0.4 }} />
           <h3>Selecione ou gere uma peça</h3>
-          <p>Escolha um tipo de peça no painel à esquerda e clique em "Gerar peça com IA".</p>
+          <p>Escolha um tipo de peça no painel à esquerda e clique em "Executar a Orbian".</p>
         </div>
       )}
       </div>

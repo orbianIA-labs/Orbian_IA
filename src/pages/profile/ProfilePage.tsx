@@ -1,60 +1,21 @@
 import { useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Building2, ChevronRight, CreditCard, Image as ImageIcon, KeyRound, LogOut,
-  Maximize2, Monitor, Moon, Plus, Shield, ShieldCheck, Sun, Trash2, Upload, User, Users, X,
+  Image as ImageIcon, Maximize2, Trash2, Upload, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { authService } from '@/services/auth.service'
 import { usuariosService } from '@/services/usuarios.service'
 import { escritorioService, logoUrlDoEscritorio, type TimbrePosicao } from '@/services/escritorio.service'
 import { FONTES, TAMANHOS } from '@/components/editor/OrbianEditor'
-import { useAuthStore } from '@/store/authStore'
-import { useThemeStore, type ThemeMode } from '@/store/themeStore'
 import { toast } from '@/store/toastStore'
-import { formatDate } from '@/lib/utils'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-type SectionKey = 'conta' | 'escritorio' | 'usuarios' | 'assinatura' | 'seguranca'
-
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Claro', icon: Sun },
-  { value: 'dark', label: 'Escuro', icon: Moon },
-  { value: 'system', label: 'Sistema', icon: Monitor },
-]
-
-const SECTIONS: { key: SectionKey; label: string; desc: string; icon: typeof User }[] = [
-  { key: 'conta', label: 'Conta', desc: 'Dados pessoais, e-mail e senha', icon: User },
-  { key: 'escritorio', label: 'Escritório', desc: 'Informações da banca e identidade visual', icon: Building2 },
-  { key: 'usuarios', label: 'Usuários', desc: 'Equipe, permissões e convites', icon: Users },
-  { key: 'assinatura', label: 'Assinatura', desc: 'Plano atual e limites', icon: CreditCard },
-  { key: 'seguranca', label: 'Segurança', desc: 'Autenticação em duas etapas e sessões', icon: Shield },
-]
-
+/** Configurações é uma tela só: conta + escritório. */
 export function ProfilePage() {
-  const navigate = useNavigate()
-  const clearAuth = useAuthStore((state) => state.clearAuth)
-  const theme = useThemeStore((state) => state.theme)
-  const setTheme = useThemeStore((state) => state.setTheme)
-  const [searchParams] = useSearchParams()
-  const sectionParam = searchParams.get('section') as SectionKey | null
-  const [section, setSection] = useState<SectionKey | null>(
-    sectionParam && SECTIONS.some((s) => s.key === sectionParam) ? sectionParam : null,
-  )
-
-  async function sair() {
-    await authService.logout()
-    clearAuth()
-    navigate('/login')
-  }
-
-  const activeSection = SECTIONS.find((s) => s.key === section)
-
   return (
     <div className="settings-page">
       <header className="new-case-header">
@@ -65,54 +26,17 @@ export function ProfilePage() {
       </header>
 
       <div className="settings-scroll">
-        {section === null ? (
-          <>
-            <section className="new-case-card">
-              <p className="section-label-lg" style={{ fontSize: 17 }}>Aparência</p>
-              <p className="new-case-card-sub">Escolha o tema da interface.</p>
-              <div className="theme-option-row">
-                {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`theme-option-btn ${theme === value ? 'active' : ''}`}
-                    onClick={() => setTheme(value)}
-                  >
-                    <Icon size={18} />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </section>
+        <section className="new-case-card">
+          <p className="section-label-lg" style={{ fontSize: 17 }}>Conta</p>
+          <p className="new-case-card-sub">Dados pessoais, e-mail e senha.</p>
+          <ContaSection />
+        </section>
 
-            <div className="settings-tile-grid">
-              {SECTIONS.map(({ key, label, desc, icon: Icon }) => (
-                <button key={key} className="settings-tile" onClick={() => setSection(key)}>
-                  <span className="settings-tile-icon"><Icon size={18} /></span>
-                  <span className="settings-tile-text">
-                    <strong>{label}</strong>
-                    <span>{desc}</span>
-                  </span>
-                  <ChevronRight size={16} className="settings-tile-chevron" />
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <section className={`new-case-card ${section === 'escritorio' ? 'new-case-card-escritorio' : ''}`}>
-            <button className="settings-back-btn" onClick={() => setSection(null)}>
-              <ArrowLeft size={15} /> Voltar
-            </button>
-            <p className="section-label-lg" style={{ fontSize: 17, marginTop: 12 }}>{activeSection?.label}</p>
-            <p className="new-case-card-sub">{activeSection?.desc}</p>
-
-            {section === 'conta' && <ContaSection />}
-            {section === 'escritorio' && <EscritorioSection />}
-            {section === 'usuarios' && <UsuariosSection />}
-            {section === 'assinatura' && <AssinaturaSection />}
-            {section === 'seguranca' && <SegurancaSection onSair={sair} />}
-          </section>
-        )}
+        <section className="new-case-card">
+          <p className="section-label-lg" style={{ fontSize: 17 }}>Escritório</p>
+          <p className="new-case-card-sub">Informações da banca e identidade visual.</p>
+          <EscritorioSection />
+        </section>
       </div>
     </div>
   )
@@ -497,213 +421,6 @@ function EscritorioSection() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function UsuariosSection() {
-  const qc = useQueryClient()
-  const { data: perfil } = useQuery({ queryKey: ['perfil'], queryFn: () => usuariosService.obterPerfil() })
-  const { data: escritorio } = useQuery({ queryKey: ['escritorio'], queryFn: () => escritorioService.obter() })
-  const { data: membros = [] } = useQuery({
-    queryKey: ['escritorio-membros'],
-    queryFn: () => escritorioService.listarMembros(),
-    enabled: !!escritorio,
-  })
-  const { data: convites = [] } = useQuery({
-    queryKey: ['escritorio-convites'],
-    queryFn: () => escritorioService.listarConvites(),
-    enabled: !!escritorio && perfil?.papelEscritorio === 'owner',
-  })
-  const [email, setEmail] = useState('')
-  const souOwner = perfil?.papelEscritorio === 'owner'
-
-  const convidar = useMutation({
-    mutationFn: () => escritorioService.convidar(email),
-    onSuccess: () => { setEmail(''); qc.invalidateQueries({ queryKey: ['escritorio-convites'] }); toast('Convite enviado.', 'success') },
-    onError: () => toast('Não foi possível enviar o convite.', 'error'),
-  })
-
-  const revogarConvite = useMutation({
-    mutationFn: (id: string) => escritorioService.revogarConvite(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['escritorio-convites'] }),
-  })
-
-  const removerMembro = useMutation({
-    mutationFn: (id: string) => escritorioService.removerMembro(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['escritorio-membros'] }),
-    onError: () => toast('Não foi possível remover este membro.', 'error'),
-  })
-
-  if (!escritorio) {
-    return (
-      <div className="settings-section-body">
-        <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-          Cadastre os dados do seu escritório na aba "Escritório" antes de convidar membros da equipe.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="settings-section-body">
-      <div className="settings-member-list">
-        {membros.map((m) => (
-          <div className="settings-member-row" key={m.id}>
-            <div>
-              <strong>{m.nome}</strong>
-              <p>{m.email} · {m.papel === 'owner' ? 'Responsável' : 'Membro'}</p>
-            </div>
-            {souOwner && m.papel !== 'owner' && (
-              <button className="icon-btn danger" title="Remover" onClick={() => removerMembro.mutate(m.id)}>
-                <Trash2 size={14} />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {souOwner && (
-        <>
-          <div className="settings-divider" />
-          <p className="section-label-lg" style={{ fontSize: 14 }}>Convidar membro</p>
-          <div className="nc-field-pair" style={{ alignItems: 'flex-end' }}>
-            <label className="nc-field">E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="colega@escritorio.com" /></label>
-            <Button onClick={() => convidar.mutate()} disabled={!email || convidar.isPending}>
-              <Plus size={15} /> Convidar
-            </Button>
-          </div>
-
-          {convites.filter((c) => !c.aceitoEm).length > 0 && (
-            <div className="settings-member-list">
-              {convites.filter((c) => !c.aceitoEm).map((c) => (
-                <div className="settings-member-row" key={c.id}>
-                  <div>
-                    <strong>{c.email}</strong>
-                    <p>Convite pendente · expira em {formatDate(c.expiresAt)}</p>
-                  </div>
-                  <button className="icon-btn danger" title="Revogar" onClick={() => revogarConvite.mutate(c.id)}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-function AssinaturaSection() {
-  const { data: assinatura } = useQuery({ queryKey: ['assinatura'], queryFn: () => usuariosService.obterAssinatura() })
-  if (!assinatura) return null
-
-  const ilimitado = (n: number) => n >= 999999
-
-  return (
-    <div className="settings-section-body">
-      <div className="settings-plan-badge">Plano {assinatura.plano}</div>
-      <dl className="definition-list" style={{ gap: 16, marginTop: 12 }}>
-        <div><dt>Casos ativos</dt><dd>{ilimitado(assinatura.limites.casosAtivosMax) ? 'Ilimitado' : `até ${assinatura.limites.casosAtivosMax}`}</dd></div>
-        <div><dt>Usuários no escritório</dt><dd>{ilimitado(assinatura.limites.usuariosMax) ? 'Ilimitado' : `até ${assinatura.limites.usuariosMax}`}</dd></div>
-        <div><dt>Gerações de IA por mês</dt><dd>{ilimitado(assinatura.limites.geracoesIaPorMes) ? 'Ilimitado' : `até ${assinatura.limites.geracoesIaPorMes}`}</dd></div>
-        <div><dt>Cobrança</dt><dd>{assinatura.cobrancaConfigurada ? 'Configurada' : 'Não configurada'}</dd></div>
-      </dl>
-      <Button variant="secondary" onClick={() => toast('Upgrade de plano ainda não está disponível.', 'info')}>
-        Fazer upgrade
-      </Button>
-    </div>
-  )
-}
-
-function SegurancaSection({ onSair }: { onSair: () => void }) {
-  const qc = useQueryClient()
-  const { data: perfil } = useQuery({ queryKey: ['perfil'], queryFn: () => usuariosService.obterPerfil() })
-  const { data: sessoes = [] } = useQuery({ queryKey: ['sessoes'], queryFn: () => usuariosService.listarSessoes() })
-  const [setup, setSetup] = useState<{ secret: string; provisioningUri: string } | null>(null)
-  const [codigo, setCodigo] = useState('')
-
-  const iniciarSetup = useMutation({
-    mutationFn: () => usuariosService.setup2fa(),
-    onSuccess: (data) => setSetup(data),
-  })
-
-  const habilitar = useMutation({
-    mutationFn: () => usuariosService.habilitar2fa(codigo),
-    onSuccess: () => { setSetup(null); setCodigo(''); qc.invalidateQueries({ queryKey: ['perfil'] }); toast('2FA ativado.', 'success') },
-    onError: () => toast('Código inválido.', 'error'),
-  })
-
-  const desabilitar = useMutation({
-    mutationFn: () => usuariosService.desabilitar2fa(codigo),
-    onSuccess: () => { setCodigo(''); qc.invalidateQueries({ queryKey: ['perfil'] }); toast('2FA desativado.', 'success') },
-    onError: () => toast('Código inválido.', 'error'),
-  })
-
-  const revogarSessao = useMutation({
-    mutationFn: (id: string) => usuariosService.revogarSessao(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessoes'] }),
-  })
-
-  return (
-    <div className="settings-section-body">
-      <p className="section-label-lg" style={{ fontSize: 14 }}>Autenticação em duas etapas</p>
-      {perfil?.twoFactorEnabled ? (
-        <>
-          <p style={{ fontSize: 13, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ShieldCheck size={15} /> 2FA está ativado nesta conta.
-          </p>
-          <label className="nc-field">Código do app autenticador (para desativar)<input value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={6} placeholder="000000" /></label>
-          <Button variant="secondary" onClick={() => desabilitar.mutate()} disabled={codigo.length !== 6 || desabilitar.isPending}>
-            Desativar 2FA
-          </Button>
-        </>
-      ) : setup ? (
-        <>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>Escaneie ou cadastre manualmente no seu app autenticador (Google Authenticator, Authy, etc.):</p>
-          <code className="settings-code-block">{setup.secret}</code>
-          <p style={{ fontSize: 11, color: 'var(--muted)', wordBreak: 'break-all' }}>{setup.provisioningUri}</p>
-          <label className="nc-field">Código gerado pelo app<input value={codigo} onChange={(e) => setCodigo(e.target.value)} maxLength={6} placeholder="000000" /></label>
-          <Button onClick={() => habilitar.mutate()} disabled={codigo.length !== 6 || habilitar.isPending}>
-            Confirmar e ativar
-          </Button>
-        </>
-      ) : (
-        <Button onClick={() => iniciarSetup.mutate()} disabled={iniciarSetup.isPending}>
-          <KeyRound size={15} /> Ativar 2FA
-        </Button>
-      )}
-
-      <div className="settings-divider" />
-
-      <p className="section-label-lg" style={{ fontSize: 14 }}>Sessões ativas</p>
-      <div className="settings-member-list">
-        {sessoes.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhuma sessão ativa.</p>}
-        {sessoes.map((s) => (
-          <div className="settings-member-row" key={s.id}>
-            <div>
-              <strong>Sessão desde {formatDate(s.createdAt)}</strong>
-              <p>Expira em {formatDate(s.expiresAt)}</p>
-            </div>
-            <button className="icon-btn danger" title="Revogar" onClick={() => revogarSessao.mutate(s.id)}>
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div className="settings-divider" />
-
-      <div className="settings-danger-row">
-        <div>
-          <strong>Encerrar sessão</strong>
-          <p>Você será desconectado da Orbian neste dispositivo.</p>
-        </div>
-        <Button variant="secondary" onClick={onSair}>
-          <LogOut size={15} /> Sair
-        </Button>
-      </div>
     </div>
   )
 }

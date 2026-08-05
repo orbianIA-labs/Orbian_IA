@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive, CalendarClock, CheckCircle2, Copy,
-  FileText, Gavel, Pencil, PenLine, Play, Plus,
-  Share2, Sparkles, Star, Trash2, Upload, X, Zap,
+  CalendarClock, CheckCircle2, Copy,
+  FileText, Gavel, Pencil, PenLine, Plus,
+  Share2, Star, Trash2, Upload, X, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -72,6 +72,7 @@ export function CaseDetailPage() {
   const [prazoForm, setPrazoForm] = useState({ titulo: '', dataVencimento: '', responsavel: '', observacoes: '' })
   const [mostrarAndamentoForm, setMostrarAndamentoForm] = useState(false)
   const [confirmandoEncerramento, setConfirmandoEncerramento] = useState(false)
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [andamentoTexto, setAndamentoTexto] = useState('')
   const [dragOverDocs, setDragOverDocs] = useState(false)
   const [viewOverride, setViewOverride] = useState<EtapaPipeline | null>(null)
@@ -118,14 +119,13 @@ export function CaseDetailPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }); setEditing(false) },
   })
 
-  const arquivar = useMutation({
-    mutationFn: () => casesService.archive(id!),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
-  })
-
-  const reabrir = useMutation({
-    mutationFn: () => casesService.update(id!, { status: 'em_andamento' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }) },
+  const excluir = useMutation({
+    mutationFn: () => casesService.remove(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cases'] })
+      toast('Caso excluído.', 'success')
+      navigate(legalCase ? `/clientes/${legalCase.clienteId}` : '/')
+    },
   })
 
   const avancarEtapa = useMutation({
@@ -211,7 +211,6 @@ export function CaseDetailPage() {
   }
 
   // ── Gating do pipeline: cada etapa só libera a próxima se o requisito for cumprido ──
-  const docCount = documentos.length
   const hasPeca = pecas.length >= 1
   // Documentos não são mais obrigatórios para gerar peças.
   const podeGerarPecas = true
@@ -270,8 +269,6 @@ export function CaseDetailPage() {
   }
   const podeVoltarEtapa = viewedIdx > 0
   const podeAvancarEtapaView = viewedIdx < currentPipelineIdx
-
-  const arquivadoManualmente = legalCase?.status === 'arquivado'
 
   // ── Visão padrão do workspace: progresso e timeline real do caso ──
   const progressoPct = Math.round((currentPipelineIdx / (PIPELINE.length - 1)) * 100)
@@ -384,22 +381,22 @@ export function CaseDetailPage() {
           >
             <Plus size={16} />
           </button>
-          {nextStage ? (
+          {nextStage && nextStage.key !== 'encerramento' ? (
             <Button
               className="case-primary-cta"
               onClick={handleAvancar}
               title={!canAdvance ? currentReq.hint : undefined}
             >
-              <Zap size={15} /> {avancarEtapa.isPending ? 'Executando...' : nextStage.key === 'encerramento' ? 'Encerrar Caso' : 'Executar Próxima Ação'}
+              <Zap size={15} /> {avancarEtapa.isPending ? 'Executando...' : 'Executar Próxima Ação'}
             </Button>
-          ) : (
+          ) : !nextStage ? (
             <Button
               onClick={() => podeGerarPecas ? navigate(`/cases/${id}/pecas`) : toast(bloqueioPecasHint, 'warning')}
               className={podeGerarPecas ? undefined : 'button-blocked'}
             >
-              <Sparkles size={16} /> Peças com IA
+              Peças com IA
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -468,29 +465,6 @@ export function CaseDetailPage() {
 
       {/* ── Corpo do workspace ── */}
       <div className="workspace-body">
-       {arquivadoManualmente ? (
-        <div className="closing-layout-v2">
-          <div className="closing-hero-v2">
-            <span className="closing-hero-icon"><Archive size={26} /></span>
-            <h2>Caso Arquivado</h2>
-            <p>Este caso foi arquivado manualmente pelo advogado responsável.</p>
-          </div>
-
-          <div className="closing-summary-grid">
-            <div className="closing-summary-card"><span>CASO</span><strong>{legalCase.title || legalCase.clientName}</strong></div>
-            <div className="closing-summary-card"><span>PROTOCOLO</span><strong>#{legalCase.protocolo}</strong></div>
-            <div className="closing-summary-card"><span>DOCUMENTOS</span><strong>{docCount}</strong></div>
-            <div className="closing-summary-card"><span>PEÇAS</span><strong>{pecas.length}</strong></div>
-          </div>
-
-          <div className="closing-actions-row">
-            <Button variant="secondary" onClick={() => reabrir.mutate()} disabled={reabrir.isPending}>
-              {reabrir.isPending ? 'Reabrindo...' : 'Reabrir caso'}
-            </Button>
-            <Button onClick={() => navigate(`/clientes/${legalCase.clienteId}`)}>Voltar para o Cliente <Play size={13} fill="currentColor" /></Button>
-          </div>
-        </div>
-       ) : (
         <div className="case-workspace-default">
         <div className="panel case-info-bar">
           <div className="case-info-row">
@@ -503,11 +477,9 @@ export function CaseDetailPage() {
             <div><span>VARA</span><strong>{legalCase.vara ?? legalCase.tribunal ?? '—'}</strong></div>
             <div><span>ÚLTIMA ATUALIZAÇÃO</span><strong>{relativeTime(legalCase.updatedAt)}</strong></div>
             <div><span>STATUS</span><span className={`badge ${STATUS_BADGE_CLASS[legalCase.status]}`}>{caseStatusLabel(legalCase.status)}</span></div>
-            {legalCase.status !== 'arquivado' && (
-              <button className="case-archive-link" onClick={() => arquivar.mutate()} disabled={arquivar.isPending}>
-                <Archive size={12} /> {arquivar.isPending ? 'Arquivando...' : 'Arquivar caso'}
-              </button>
-            )}
+            <button className="case-archive-link" onClick={() => setConfirmandoExclusao(true)}>
+              <Trash2 size={12} /> Excluir caso
+            </button>
           </div>
         </div>
 
@@ -530,7 +502,7 @@ export function CaseDetailPage() {
                 <div className="case-doc-preview-body" dangerouslySetInnerHTML={{ __html: pecas[0].conteudo }} />
                 <div className="case-doc-preview-actions">
                   <Button variant="secondary" onClick={() => navigate(`/cases/${id}/pecas`)}>Abrir Editor</Button>
-                  <Button onClick={() => navigate(`/cases/${id}/pecas`)}><Sparkles size={14} /> Gerar Peça</Button>
+                  <Button onClick={() => navigate(`/cases/${id}/pecas`)}>Gerar Peça</Button>
                   <button className="case-icon-btn" onClick={() => copiarPeca(pecas[0])} title="Copiar conteúdo">
                     <Copy size={15} />
                   </button>
@@ -541,7 +513,7 @@ export function CaseDetailPage() {
                 <FileText size={26} />
                 <span>{podeGerarPecas ? 'Nenhuma peça gerada ainda.' : bloqueioPecasHint}</span>
                 {podeGerarPecas && (
-                  <Button onClick={() => navigate(`/cases/${id}/pecas`)}><Sparkles size={14} /> Gerar peça com IA</Button>
+                  <Button onClick={() => navigate(`/cases/${id}/pecas`)}>Executar a Orbian</Button>
                 )}
               </div>
             )}
@@ -644,9 +616,9 @@ export function CaseDetailPage() {
           <div className="panel case-prazos-panel">
             <div className="ws-section-header">
               <p className="section-label" style={{ margin: 0 }}>PRAZOS DO CASO</p>
-              <button className="section-link-btn" onClick={abrirNovoPrazo}>
+              <Button className="case-add-prazo-btn" onClick={abrirNovoPrazo} style={{ fontSize: 12, padding: '6px 12px' }}>
                 <Plus size={13} /> Adicionar Prazo
-              </button>
+              </Button>
             </div>
 
             {prazos.length === 0 ? (
@@ -687,7 +659,6 @@ export function CaseDetailPage() {
 
         {/* ── Barra de ações ── */}
         <div className="case-workspace-actionbar">
-          <Button onClick={() => navigate(`/cases/${id}/pecas`)}><Sparkles size={14} /> Gerar Peça</Button>
           <Button variant="secondary" onClick={() => setMostrarSeletorTipo(true)}><Upload size={14} /> Adicionar Documento</Button>
           <Button variant="secondary" onClick={() => setMostrarAndamentoForm((v) => !v)}><PenLine size={14} /> Registrar Andamento</Button>
           <Button variant="secondary" onClick={abrirNovoPrazo}><CalendarClock size={14} /> Atualizar Prazo</Button>
@@ -714,7 +685,6 @@ export function CaseDetailPage() {
           </div>
         )}
         </div>
-       )}
       </div>
 
       {mostrarPrazoForm && (
@@ -748,6 +718,17 @@ export function CaseDetailPage() {
         loading={avancarEtapa.isPending}
         onConfirm={() => avancarEtapa.mutate('encerramento')}
         onCancel={() => setConfirmandoEncerramento(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmandoExclusao}
+        title={`Excluir "${legalCase.title || legalCase.clientName}"?`}
+        description="Essa ação apaga o caso e todos os documentos, peças e prazos vinculados a ele, de forma permanente. Não é possível desfazer."
+        confirmLabel="Excluir Caso"
+        danger
+        loading={excluir.isPending}
+        onConfirm={() => excluir.mutate()}
+        onCancel={() => setConfirmandoExclusao(false)}
       />
     </div>
   )

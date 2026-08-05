@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Bot, Download, FileText, Plus, Sparkles, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Download, FileText, Plus, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { casesService } from '@/services/cases.service'
 import { documentosService, type Documento } from '@/services/documentos.service'
@@ -27,8 +27,6 @@ export function DocumentosPage() {
 
   const [categoriaAtiva, setCategoriaAtiva] = useState<Categoria>('Todos')
   const [uploadCategoria, setUploadCategoria] = useState<Categoria>('Outros')
-  const [forAI, setForAI] = useState<Set<string>>(new Set())
-  const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [contexto, setContexto] = useState('')
   const [dragOver, setDragOver] = useState(false)
@@ -75,12 +73,6 @@ export function DocumentosPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documentos', id] }),
   })
 
-  const analisar = useMutation({
-    mutationFn: (documentoIds: string[]) => documentosService.analisar(id!, documentoIds),
-    onSuccess: (analise) => setAiSummary(analise),
-    onError: () => setAiSummary('Não foi possível analisar os documentos agora. Tente novamente em instantes.'),
-  })
-
   const salvarContexto = useMutation({
     mutationFn: () => casesService.update(id!, { resumoFatos: contexto }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['case', id] }),
@@ -101,20 +93,9 @@ export function DocumentosPage() {
     handleFiles(Array.from(e.dataTransfer.files ?? []))
   }
 
-  function toggleAI(docId: string) {
-    setForAI((prev) => {
-      const next = new Set(prev)
-      if (next.has(docId)) next.delete(docId)
-      else next.add(docId)
-      return next
-    })
-  }
-
   const displayedDocs = categoriaAtiva === 'Todos'
     ? docs
     : docs.filter((d) => d.tipo === categoriaAtiva)
-
-  const docsParaIA = docs.filter((d) => forAI.has(d.id))
 
   return (
     <div className="doc-page">
@@ -149,7 +130,10 @@ export function DocumentosPage() {
             </p>
           </div>
 
-          <section className="new-case-card">
+          {erro && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erro}</p>}
+
+          <div className="doc-page-row">
+          <section className="new-case-card doc-context-card">
             <p className="section-label-lg" style={{ fontSize: 15 }}>Contexto da Execução</p>
             <p style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>
               Descreva os fatos relevantes, acontecimentos principais e objetivo da próxima peça.
@@ -162,8 +146,6 @@ export function DocumentosPage() {
               placeholder="Descreva o que aconteceu neste caso, os pontos importantes e o objetivo jurídico desta execução..."
             />
           </section>
-
-          {erro && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erro}</p>}
 
           <section
             className={`new-case-card doc-list-card ${dragOver ? 'drag-over' : ''}`}
@@ -235,19 +217,12 @@ export function DocumentosPage() {
                   <span />
                 </div>
                 {displayedDocs.map((doc: Documento) => (
-                  <div key={doc.id} className={`doc-table-row ${forAI.has(doc.id) ? 'for-ai' : ''}`}>
+                  <div key={doc.id} className="doc-table-row">
                     <span className="doc-table-name"><FileText size={15} /> {doc.nomeArquivo}</span>
                     <span><span className="doc-cat-chip">{doc.tipo ?? 'Outros'}</span></span>
                     <span className="muted">{formatDate(doc.createdAt)}</span>
                     <span className="muted">{formatSize(doc.tamanhoBytes)}</span>
                     <span className="doc-table-actions">
-                      <button
-                        className={`doc-ai-toggle ${forAI.has(doc.id) ? 'active' : ''}`}
-                        onClick={() => toggleAI(doc.id)}
-                        title={forAI.has(doc.id) ? 'Remover da IA' : 'Usar com IA'}
-                      >
-                        <Bot size={13} />
-                      </button>
                       <button className="doc-view-btn" title="Baixar" onClick={() => documentosService.download(doc.id, doc.nomeArquivo)}>
                         <Download size={14} />
                       </button>
@@ -260,56 +235,8 @@ export function DocumentosPage() {
               </div>
             )}
           </section>
-        </div>
-
-        {/* ── Painel IA ── */}
-        <aside className="new-case-card new-case-insights doc-ai-panel">
-          <div className="doc-ai-panel-header">
-            <Sparkles size={16} style={{ color: 'var(--c-primary)' }} />
-            <p className="section-label" style={{ margin: 0 }}>PREPARAÇÃO DA PEÇA</p>
           </div>
-
-          {docsParaIA.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-              Selecione documentos na lista para incluir na análise da IA.
-            </p>
-          ) : (
-            <>
-              <div className="doc-ai-list">
-                {docsParaIA.map((doc) => (
-                  <div key={doc.id} className="doc-ai-item">
-                    <FileText size={13} style={{ color: 'var(--c-primary)', flexShrink: 0 }} />
-                    <span>{doc.nomeArquivo}</span>
-                    <button onClick={() => toggleAI(doc.id)}>
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <Button
-                style={{ width: '100%', marginTop: 12 }}
-                onClick={() => analisar.mutate(docsParaIA.map((d) => d.id))}
-                disabled={analisar.isPending}
-              >
-                <Sparkles size={14} /> {analisar.isPending ? 'Analisando...' : 'Analisar com IA'}
-              </Button>
-            </>
-          )}
-
-          {aiSummary && (
-            <div className="doc-ai-summary">
-              <p className="section-label" style={{ marginBottom: 8 }}>ANÁLISE</p>
-              <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{aiSummary}</p>
-              <button
-                style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--muted)', cursor: 'pointer', marginTop: 8 }}
-                onClick={() => setAiSummary(null)}
-              >
-                Limpar
-              </button>
-            </div>
-          )}
-        </aside>
+        </div>
       </div>
     </div>
   )

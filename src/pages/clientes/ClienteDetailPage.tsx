@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Sparkles, Trash2, Upload, User } from 'lucide-react'
+import { Plus, Sparkles, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ResolverClienteComCasosDialog } from '@/components/ui/ResolverClienteComCasosDialog'
@@ -138,12 +138,6 @@ export function ClienteDetailPage() {
   if (prazosUrgentes.length > 0) recomendacoes.push(`${prazosUrgentes.length} prazo(s) com vencimento próximo precisam de atenção.`)
   if (casosSemPeca.length > 0) recomendacoes.push(`${casosSemPeca.length} caso(s) aguardando geração de peça.`)
 
-  function irParaDocumentos() {
-    const casoRecente = [...casos].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
-    if (!casoRecente) { toast('Cadastre um caso para este cliente primeiro.', 'info'); return }
-    navigate(`/cases/${casoRecente.id}/documentos`)
-  }
-
   return (
     <div className="cliente-detail-page">
       <div className="case-breadcrumb" style={{ marginBottom: 12 }}>
@@ -162,7 +156,15 @@ export function ClienteDetailPage() {
             {' · '}<span className="badge badge-success">Ativo</span>
           </p>
         </div>
-        <Button variant="secondary" onClick={abrirEdicao}>Editar</Button>
+      </div>
+
+      {/* Ações ficam no topo: com muitos casos a lista rola e uma barra no rodapé sumiria. */}
+      <div className="cliente-detail-actionbar">
+        <Button onClick={() => navigate(`/cases/new?clienteId=${id}&clienteNome=${encodeURIComponent(cliente.nome)}`)}>
+          <Plus size={14} /> Novo Caso
+        </Button>
+        <Button variant="secondary" onClick={abrirEdicao}>Editar Cliente</Button>
+        <Button variant="danger" onClick={() => setAlvoExclusao(true)}><Trash2 size={14} /> Excluir Cliente</Button>
       </div>
 
       {editando && (
@@ -259,15 +261,6 @@ export function ClienteDetailPage() {
             )}
           </div>
         </aside>
-      </div>
-
-      <div className="cliente-detail-actionbar">
-        <Button onClick={() => navigate(`/cases/new?clienteId=${id}&clienteNome=${encodeURIComponent(cliente.nome)}`)}>
-          <Plus size={14} /> Novo Caso
-        </Button>
-        <Button variant="secondary" onClick={irParaDocumentos}><Upload size={14} /> Adicionar Documento</Button>
-        <Button variant="secondary" onClick={abrirEdicao}>Editar Cliente</Button>
-        <Button variant="danger" onClick={() => setAlvoExclusao(true)}><Trash2 size={14} /> Excluir Cliente</Button>
       </div>
 
       <ConfirmDialog

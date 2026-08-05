@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Star } from 'lucide-react'
 import { createCaseSchema, type CreateCaseInput } from '@/lib/zod-schemas'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { PIPELINE } from '@/lib/pipeline'
 import { casesService, type ClienteBusca } from '@/services/cases.service'
 import { clientesService } from '@/services/clientes.service'
 import { toast } from '@/store/toastStore'
@@ -25,8 +27,6 @@ const PRIORIDADES = [
   { value: 'media', label: 'Prioridade Média' },
   { value: 'baixa', label: 'Prioridade Baixa' },
 ] as const
-
-const PIPELINE_TABS = ['Cadastro', 'Documentos', 'Gerar Peças', 'Prazos', 'Revisão', 'Encerramento']
 
 const DRAFT_STORAGE_PREFIX = 'orbian:new-case-draft:'
 
@@ -233,8 +233,8 @@ export function NewCasePage() {
         </div>
 
         <nav className="pipeline-tabs">
-          {PIPELINE_TABS.map((label, i) => (
-            <span key={label} className={`pipeline-tab ${i === 0 ? 'active' : 'locked'}`}>
+          {PIPELINE.map(({ key, label }, i) => (
+            <span key={key} className={`pipeline-tab ${i === 0 ? 'active' : 'locked'}`}>
               {label}
             </span>
           ))}
@@ -360,11 +360,15 @@ export function NewCasePage() {
             <div className="nc-field-pair">
               <label className="nc-field">
                 Valor da Causa
-                <input type="number" step="0.01" min="0" {...register('valorCausa', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder="R$ 0,00" />
+                <CurrencyInput value={valorCausa} onChange={(v) => setValue('valorCausa', v)} />
               </label>
               <label className="nc-field">
                 Honorários {honorariosTipo === 'percentual' ? '(%)' : '(R$)'}
-                <input type="number" step="0.01" min="0" {...register('honorarios', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder={honorariosTipo === 'percentual' ? '% do valor da causa' : 'R$ 0,00'} />
+                {honorariosTipo === 'percentual' ? (
+                  <input type="number" step="0.01" min="0" {...register('honorarios', { setValueAs: (v) => v === '' ? undefined : Number(v) })} placeholder="% do valor da causa" />
+                ) : (
+                  <CurrencyInput value={honorarios} onChange={(v) => setValue('honorarios', v)} />
+                )}
               </label>
             </div>
             <div className="nc-field-pair">

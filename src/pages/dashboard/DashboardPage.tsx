@@ -70,7 +70,7 @@ export function DashboardPage() {
       <header className="home-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <h1>{saudacao}, {user?.name?.split(' ')[0] ?? ''}.</h1>
-          <Link to="/profile?section=escritorio" className="home-escritorio-link" title="Cadastro do escritório">
+          <Link to="/profile" className="home-escritorio-link" title="Cadastro do escritório">
             <Building2 size={15} /> Escritório
           </Link>
         </div>
@@ -115,8 +115,8 @@ export function DashboardPage() {
 
               <div className="mission-bottom">
                 <div>
-                  <h2 className="mission-title">{caso.title || caso.clientName}</h2>
-                  <p className="mission-sub">{caso.caseNumber ?? PIPELINE[missionStageIdx].label} · Atualizado {relativeTime(caso.updatedAt)}</p>
+                  <h2 className="mission-title">{caso.clientName}</h2>
+                  <p className="mission-sub">{caso.title || caso.caseNumber || PIPELINE[missionStageIdx].label} · Atualizado {relativeTime(caso.updatedAt)}</p>
                 </div>
                 <button className="mission-cta" onClick={() => navigate(`/cases/${caso.id}`)}>
                   <Play size={15} fill="currentColor" />
@@ -127,7 +127,6 @@ export function DashboardPage() {
           </section>
         ) : (
           <div className="panel mission-empty">
-            <Sparkles size={30} style={{ color: 'var(--c-primary)' }} />
             <p>Nenhuma execução pendente. Tudo em dia por aqui.</p>
             <button className="mission-cta" onClick={() => navigate('/cases/new')}>
               <Play size={15} fill="currentColor" /> Nova Execução
@@ -154,11 +153,11 @@ export function DashboardPage() {
                 : c.updatedAt
               return (
                 <Link key={c.id} to={`/cases/${c.id}`} className="motor-item motor-item-link">
-                  <span className="motor-dot" />
+                  <span className="motor-avatar">{c.clientName.slice(0, 2).toUpperCase()}</span>
                   <div className="motor-item-body">
                     <div className="motor-item-card">
-                      <strong>{c.title || c.clientName}</strong>
-                      <span className="motor-item-meta">{c.category || c.tipoServico || etapaLabel(c.etapaAtual)}</span>
+                      <strong>{c.clientName}</strong>
+                      <span className="motor-item-meta">{c.title || c.category || c.tipoServico || etapaLabel(c.etapaAtual)}</span>
                     </div>
                   </div>
                   <span className="motor-time motor-time-right">{relativeTime(ultimaAtividade)}</span>

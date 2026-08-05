@@ -1,9 +1,9 @@
 import {
   BookOpen,
+  CalendarClock,
   Home,
   Settings,
   Users,
-  Zap,
 } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -12,6 +12,7 @@ import type { User } from '@/types/domain.types'
 const navItems = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/prazos', label: 'Prazos', icon: CalendarClock },
   { to: '/biblioteca', label: 'Modelo de Peças', icon: BookOpen },
   { to: '/profile', label: 'Configurações', icon: Settings },
 ]
@@ -38,7 +39,7 @@ export function Sidebar() {
     <aside className="sidebar" aria-label="Navegação principal">
       <div className="brand">
         <span className="brand-mark">
-          <Zap size={18} fill="currentColor" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" height={18} style={{ width: 'auto', display: 'block' }} />
         </span>
         <div>
           <strong>Orbian</strong>

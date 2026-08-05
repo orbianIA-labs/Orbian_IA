@@ -1,55 +1,43 @@
-import { LogOut, Monitor, Moon, Plus, Sun, User as UserIcon } from 'lucide-react'
+import { LogOut, Moon, Plus, Sun, User as UserIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { useThemeStore, type ThemeMode } from '@/store/themeStore'
-import { useState } from 'react'
+import { useThemeStore } from '@/store/themeStore'
+import { useEffect, useState } from 'react'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationsBell } from './NotificationsBell'
 
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Claro', icon: Sun },
-  { value: 'dark', label: 'Escuro', icon: Moon },
-  { value: 'system', label: 'Sistema', icon: Monitor },
-]
+function resolvedIsDark(theme: string) {
+  if (theme === 'dark') return true
+  if (theme === 'light') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
 
 export function TopBar() {
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const navigate = useNavigate()
   const [userOpen, setUserOpen] = useState(false)
-  const [themeOpen, setThemeOpen] = useState(false)
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
-  const ThemeIcon = THEME_OPTIONS.find((t) => t.value === theme)?.icon ?? Monitor
+  const [isDark, setIsDark] = useState(() => resolvedIsDark(theme))
+
+  useEffect(() => setIsDark(resolvedIsDark(theme)), [theme])
 
   return (
     <header className="topbar">
       <GlobalSearch />
 
       <div className="topbar-actions">
-        <div className="topbar-icon-user" style={{ position: 'relative' }}>
-          <button
-            className="bell-btn"
-            aria-label="Alternar tema"
-            onClick={() => setThemeOpen(!themeOpen)}
-          >
-            <ThemeIcon size={18} />
-          </button>
-
-          {themeOpen && (
-            <div className="user-dropdown theme-dropdown">
-              {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  className={`user-dropdown-item ${theme === value ? 'active' : ''}`}
-                  onClick={() => { setTheme(value); setThemeOpen(false) }}
-                >
-                  <Icon size={15} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <button
+          className="theme-toggle"
+          role="switch"
+          aria-checked={isDark}
+          aria-label={isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+          onClick={() => setTheme(isDark ? 'light' : 'dark')}
+        >
+          <Sun size={13} className="theme-toggle-icon theme-toggle-icon-sun" />
+          <Moon size={13} className="theme-toggle-icon theme-toggle-icon-moon" />
+          <span className="theme-toggle-knob" />
+        </button>
 
         <NotificationsBell />
 

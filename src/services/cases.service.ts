@@ -200,7 +200,7 @@ export const casesService = {
     return mapCaso(data)
   },
 
-  async archive(id: string): Promise<LegalCase> {
-    return this.update(id, { status: 'arquivado' })
+  async remove(id: string): Promise<void> {
+    await api.delete(`/api/casos/${id}`)
   },
 }
