@@ -18,6 +18,7 @@ import api from '@/lib/axios'
 import type { CaseStatus, EtapaPipeline } from '@/types/domain.types'
 import { PIPELINE, pipelineIndex } from '@/lib/pipeline'
 import { PipelineStepper } from '@/components/case/PipelineStepper'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 const STATUS_BADGE_CLASS: Record<CaseStatus, string> = {
   em_andamento: 'badge-success',
@@ -499,7 +500,7 @@ export function CaseDetailPage() {
                     <span className="case-doc-tag ok"><span className="live-dot-mini" /> Salvo</span>
                   </div>
                 </div>
-                <div className="case-doc-preview-body" dangerouslySetInnerHTML={{ __html: pecas[0].conteudo }} />
+                <div className="case-doc-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(pecas[0].conteudo) }} />
                 <div className="case-doc-preview-actions">
                   <Button variant="secondary" onClick={() => navigate(`/cases/${id}/pecas`)}>Abrir Editor</Button>
                   <Button onClick={() => navigate(`/cases/${id}/pecas`)}>Gerar Peça</Button>

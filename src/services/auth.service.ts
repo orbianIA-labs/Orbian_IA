@@ -14,9 +14,18 @@ type LoginApiResponse = {
   auth: AuthApiResponse | null
 }
 
+type RegisterApiResponse = {
+  requiresEmailConfirmation: boolean
+  auth: AuthApiResponse | null
+}
+
 export type LoginResult =
   | { status: 'ok'; accessToken: string; user: User }
   | { status: 'requires2fa'; tempToken: string }
+
+export type RegisterResult =
+  | { status: 'ok'; accessToken: string; user: User }
+  | { status: 'requiresEmailConfirmation' }
 
 function mapUser(dto: AuthApiResponse['usuario']): User {
   return {
@@ -28,8 +37,17 @@ function mapUser(dto: AuthApiResponse['usuario']): User {
 }
 
 export const authService = {
-  async register(nome: string, email: string, senha: string, remember = true, conviteToken?: string) {
-    const { data } = await api.post<AuthApiResponse>('/api/auth/register', { nome, email, senha, conviteToken })
+  async register(nome: string, email: string, senha: string, remember = true, conviteToken?: string): Promise<RegisterResult> {
+    const { data } = await api.post<RegisterApiResponse>('/api/auth/register', { nome, email, senha, conviteToken })
+    if (data.requiresEmailConfirmation) {
+      return { status: 'requiresEmailConfirmation' }
+    }
+    tokenStorage.set(data.auth!.refreshToken, remember)
+    return { status: 'ok', accessToken: data.auth!.accessToken, user: mapUser(data.auth!.usuario) }
+  },
+
+  async confirmEmail(token: string, remember = true) {
+    const { data } = await api.post<AuthApiResponse>('/api/auth/confirmar-email', { token })
     tokenStorage.set(data.refreshToken, remember)
     return { accessToken: data.accessToken, user: mapUser(data.usuario) }
   },

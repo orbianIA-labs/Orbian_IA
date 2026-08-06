@@ -73,6 +73,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [tempToken, setTempToken] = useState<string | null>(null)
   const [codigo2fa, setCodigo2fa] = useState('')
+  const [cadastroPendente, setCadastroPendente] = useState(false)
 
   async function aceitarConviteSeHouver() {
     if (!conviteToken) return
@@ -96,8 +97,12 @@ export function LoginPage() {
         return
       }
 
-      const session = await authService.register(nome, email, senha, lembrar, conviteToken)
-      setTokens(session.accessToken, session.user)
+      const result = await authService.register(nome, email, senha, lembrar, conviteToken)
+      if (result.status === 'requiresEmailConfirmation') {
+        setCadastroPendente(true)
+        return
+      }
+      setTokens(result.accessToken, result.user)
       navigate('/')
     } catch {
       setError(mode === 'login' ? 'Email ou senha inválidos' : 'Não foi possível criar a conta. Verifique o e-mail e use uma senha com pelo menos 8 caracteres.')
@@ -127,7 +132,21 @@ export function LoginPage() {
     <main className="auth-page-split">
       <section className="auth-form-side">
         <div className="auth-card">
-          {tempToken ? (
+          {cadastroPendente ? (
+            <>
+              <header>
+                <h2>Quase lá.</h2>
+                <p>Se esse e-mail ainda não tinha conta na Orbian, mandamos um link de confirmação pra ele. Verifique sua caixa de entrada (e o spam).</p>
+              </header>
+              <button
+                type="button"
+                className="auth-forgot-link"
+                onClick={() => { setCadastroPendente(false); setMode('login') }}
+              >
+                Voltar para o login
+              </button>
+            </>
+          ) : tempToken ? (
             <>
               <header>
                 <h2>Verificação em duas etapas.</h2>

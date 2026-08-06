@@ -8,6 +8,7 @@ import { usuariosService } from '@/services/usuarios.service'
 import { escritorioService, logoUrlDoEscritorio, type TimbrePosicao } from '@/services/escritorio.service'
 import { FONTES, TAMANHOS } from '@/components/editor/OrbianEditor'
 import { toast } from '@/store/toastStore'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -406,7 +407,7 @@ function EscritorioSection() {
                   {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}
                 </div>
               )}
-              <div dangerouslySetInnerHTML={{ __html: PECA_EXEMPLO_HTML }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(PECA_EXEMPLO_HTML) }} />
               {form.timbrePosicao.startsWith('inferior') && (
                 <div className={`escritorio-preview-logo align-${alinhamentoTimbre}`}>
                   {logoAtual ? <img src={logoAtual} alt="" /> : <span className="escritorio-preview-placeholder" />}

@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/common/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
+import { ConfirmEmailPage } from '@/pages/auth/ConfirmEmailPage'
 import { AdminPage } from '@/pages/admin/AdminPage'
 import { CaseDetailPage } from '@/pages/cases/CaseDetailPage'
 import { NewCasePage } from '@/pages/cases/NewCasePage'
@@ -26,6 +27,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/convite/:token" element={<AcceptInvitePage />} />
+          <Route path="/confirmar-email/:token" element={<ConfirmEmailPage />} />
           <Route
             element={
               <ProtectedRoute>

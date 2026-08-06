@@ -15,6 +15,7 @@ import { toast } from '@/store/toastStore'
 import { extrairSecaoHtml, MODULOS_PECA as MODULOS } from '@/lib/pecaSections'
 import { PIPELINE, reachableIndex, stageRoute } from '@/lib/pipeline'
 import { PipelineStepper } from '@/components/case/PipelineStepper'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 interface PecaGerada {
   id: string
@@ -518,7 +519,7 @@ function logoSrc(): string | null {
             {moduloAtivo ? (
               <div className="pecas-modulo-preview">
                 {secaoModuloAtivo ? (
-                  <div dangerouslySetInnerHTML={{ __html: secaoModuloAtivo }} />
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(secaoModuloAtivo) }} />
                 ) : (
                   <p className="pecas-module-hint">Este trecho ainda não foi identificado no texto gerado.</p>
                 )}
