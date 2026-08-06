@@ -3776,6 +3776,7 @@ progress::-webkit-progress-value {
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-size: 13px;
+  background: var(--surface);
   color: var(--ink);
   font-family: inherit;
   resize: vertical;
@@ -5581,7 +5582,7 @@ progress::-webkit-progress-value {
   padding: 0 28px;
   border: none;
   border-radius: var(--radius-pill);
-  background: var(--grad-primary);
+  background: var(--c-primary);
   color: #fff;
   font-size: 14px;
   font-weight: 700;
