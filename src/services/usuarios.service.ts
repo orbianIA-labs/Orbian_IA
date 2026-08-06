@@ -80,8 +80,8 @@ export const usuariosService = {
     await api.delete(`/api/usuarios/me/sessoes/${id}`)
   },
 
-  async setup2fa() {
-    const { data } = await api.post<TotpSetup>('/api/usuarios/me/2fa/setup')
+  async setup2fa(senhaAtual: string) {
+    const { data } = await api.post<TotpSetup>('/api/usuarios/me/2fa/setup', { senhaAtual })
     return data
   },
 

@@ -100,7 +100,7 @@ export function LoginPage() {
       setTokens(session.accessToken, session.user)
       navigate('/')
     } catch {
-      setError(mode === 'login' ? 'Email ou senha inválidos' : 'Erro ao criar conta. Email já cadastrado?')
+      setError(mode === 'login' ? 'Email ou senha inválidos' : 'Não foi possível criar a conta. Verifique o e-mail e use uma senha com pelo menos 8 caracteres.')
     } finally {
       setLoading(false)
     }

@@ -199,7 +199,7 @@ function EscritorioSection() {
   const uploadLogo = useMutation({
     mutationFn: (file: File) => escritorioService.uploadLogo(file),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['escritorio'] }); toast('Logo atualizada.', 'success') },
-    onError: () => toast('Não foi possível enviar a imagem. Use PNG, JPEG ou SVG de até 5 MB.', 'error'),
+    onError: () => toast('Não foi possível enviar a imagem. Use PNG ou JPEG de até 5 MB.', 'error'),
   })
 
   const removerLogo = useMutation({
@@ -276,7 +276,7 @@ function EscritorioSection() {
             <>
               <ImageIcon size={28} style={{ opacity: 0.35 }} />
               <p style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'center' }}>
-                Arraste uma imagem ou clique para enviar (PNG, JPEG ou SVG, até 5 MB)
+                Arraste uma imagem ou clique para enviar (PNG ou JPEG, até 5 MB)
               </p>
               <Button variant="secondary" style={{ fontSize: 12 }} onClick={() => fileInputRef.current?.click()} disabled={uploadLogo.isPending}>
                 <Upload size={13} /> {uploadLogo.isPending ? 'Enviando...' : 'Selecionar imagem'}
@@ -286,7 +286,7 @@ function EscritorioSection() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/svg+xml"
+            accept="image/png,image/jpeg"
             style={{ display: 'none' }}
             onChange={(e) => { handleLogoFiles(Array.from(e.target.files ?? [])); e.target.value = '' }}
           />
